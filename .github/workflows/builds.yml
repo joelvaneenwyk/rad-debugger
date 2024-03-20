@@ -20,14 +20,15 @@ jobs:
         compiler: [msvc, clang]
         target: [raddbg, raddbg_from_pdb, raddbg_from_dwarf]
 
+    name: "⚙️ ${{ matrix.target }} - ${{ matrix.compiler }} - ${{ matrix.config }}"
     steps:
-      - name: checkout
+      - name: "🔃 checkout"
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
           submodules: recursive
 
-      - name: "⚙️ build | ${{ matrix.compiler }} | ${{ matrix.config }}"
+      - name: "🔥 build - ${{ matrix.compiler }} - ${{ matrix.config }}"
         shell: cmd
         run: |
           call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64
