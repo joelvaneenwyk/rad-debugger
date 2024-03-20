@@ -1,5 +1,21 @@
-::@echo off
-goto:$Main
+@echo off && goto:$Main
+
+setlocal EnableDelayedExpansion
+call "C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Tools\MSVC\14.39.33519\bin\Hostx64\x64\cl.exe" ^
+  /Od ^
+  /I"M:\projects\rad-debugger\src" ^
+  /I"M:\projects\rad-debugger\local" ^
+  /I"C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Tools\MSVC\14.39.33519\include" ^
+  /I"C:\Program Files (x86)\Windows Kits\10\Include\10.0.22621.0\ucrt" ^
+  /I"C:\Program Files (x86)\Windows Kits\10\Include\10.0.22621.0\um" ^
+  /I"C:\Program Files (x86)\Windows Kits\10\Include\10.0.22621.0\shared" ^
+  /nologo /FC /Z7 ^
+  "M:\projects\rad-debugger\src\metagen\metagen_main.c" "/FoM:\projects\rad-debugger\build\metagen.o" ^
+  /link /MANIFEST:EMBED /INCREMENTAL:NO ^
+  /natvis:"M:\projects\rad-debugger\src\natvis\base.natvis" ^
+  /out:"M:\projects\rad-debugger\build\metagen.exe"
+endlocal & exit /b 0
+
 :: --- Usage Notes (2024/1/10) ------------------------------------------------
 ::
 :: This is a central build script for the RAD Debugger project. It takes a list
@@ -26,34 +42,25 @@ goto:$Main
 :Command
     setlocal EnableDelayedExpansion
     set "_command=%*"
+    goto:$CommandRun
 
-    goto:$CommandVar
     :CommandVar
-        setlocal EnableDelayedExpansion
+    setlocal EnableDelayedExpansion
         set "_cmd=!%~1!"
         set "_cmd=!_cmd:      = !"
         set "_cmd=!_cmd:    = !"
         set "_cmd=!_cmd:   = !"
         set "_cmd=!_cmd:  = !"
-        set _error_value=0
-
-        :$RunCommand
         echo ##[cmd] !_cmd!
-        cd /D "%~dp0build"
         call !_cmd!
-        set _error_value=%ERRORLEVEL%
+    endlocal & exit /b %errorlevel%
 
-        :$CommandDone
-        endlocal & (
-            exit /b %_error_value%
-        )
-    :$CommandVar
-
+    :$CommandRun
     call :CommandVar "_command"
 endlocal & exit /b %errorlevel%
 
 :Find
-    setlocal EnableDelayedExpansion
+setlocal EnableDelayedExpansion
     set "_var=%~1"
     set "_exe=%~2"
     if ["!_exe!"]==[""] set "_exe=!%_var%!"
@@ -72,8 +79,8 @@ endlocal & exit /b %errorlevel%
           if not exist "!_out!" goto:$InnerFindLoop
       endlocal & (
         set "%_variable%=%_out%"
+        exit /b 0
       )
-    exit /b 0
     :$InnerFindEnd
 
     call :$InnerFind "!_var!" "!_exe!" ^
@@ -100,7 +107,12 @@ exit /b %errorlevel%
 :: Main
 ::-------------------------------
 :$Main
-    setlocal EnableDelayedExpansion
+if not "%~1"==""  (
+    call "%~dp0build.old.bat" %*
+    goto:eof
+)
+
+setlocal EnableDelayedExpansion
     set "_error=0"
     set "_root=%~dp0"
     if "!_root:~-1!"=="\" set "_root=!_root:~0,-1!"
@@ -140,6 +152,8 @@ exit /b %errorlevel%
     set     "clang_link=-fuse-ld=lld -Xlinker /MANIFEST:EMBED -Xlinker /natvis:"!_root!\src\natvis\base.natvis" "!_build!\logo.res" "
     set         "cl_out=/out:"
     set      "clang_out=-o"
+    set         "cl_obj=/Fo"
+    set      "clang_obj=/Fo"
 
     :: --- Per-Build Settings -----------------------------------------------------
     set "gfx=-DOS_FEATURE_GRAPHICAL=1"
@@ -165,12 +179,13 @@ exit /b %errorlevel%
     if "%release%"=="1"   set "compile=!compile_release!"
 
     :: --- Prep Directories -------------------------------------------------------
-    if not exist build mkdir build
-    if not exist local mkdir local
+    if not exist "!_build!" mkdir "!_build!"
+    if not exist "!_root!\local" mkdir "!_root!\local"
 
     :: --- Produce Logo Icon File -------------------------------------------------
     cd /d "!_build!"
-    call :Command "!rc!" /nologo /fo "!_build!\logo.res" "!_root!\data\logo.rc" || goto:$MainError
+    call :Command "!rc!" /nologo %cl_obj%"!_build!\logo.res" "!_root!\data\logo.rc"
+    if errorlevel 1 goto:$MainError
 
     :: --- Get Current Git Commit Id ----------------------------------------------
     for /f %%i in ('call "C:\Program Files\Git\bin\git.exe" describe --always --dirty') do (
@@ -183,22 +198,32 @@ exit /b %errorlevel%
       goto:$MainSkipMetagen
     )
     cd /d "!_build!"
-    call :Command !compile_debug! "!_root!\src\metagen\metagen_main.c" !compile_link! "%out%!_build!\metagen.exe"
+    call :Command !compile_debug! "!_root!\src\metagen\metagen_main.c" %cl_obj%"!_build!\metagen_main.o" !compile_link! %out%"!_build!\metagen.exe"
     if errorlevel 1 goto:$MainError
     :$MainSkipMetagen
 
     :: --- Build Everything (@build_targets) --------------------------------------
     cd /d "!_build!"
-    if "%raddbg%"=="1"             !compile! %gfx%       "!_root!\src\raddbg\raddbg_main.cpp"                                !compile_link! "%out%!_build!\raddbg.exe" || goto:$MainError
-    if "%raddbg_from_pdb%"=="1"    !compile!             "!_root!\src\raddbg_convert\pdb\raddbg_from_pdb_main.c"             !compile_link! "%out%!_build!\raddbg_from_pdb.exe" || goto:$MainError
-    if "%raddbg_from_dwarf%"=="1"  !compile!             "!_root!\src\raddbg_convert\dwarf\raddbg_from_dwarf.c"              !compile_link! "%out%!_build!\raddbg_from_dwarf.exe" || goto:$MainError
-    if "%raddbg_dump%"=="1"        !compile!             "!_root!\src\raddbg_dump\raddbg_dump.c"                             !compile_link! "%out%!_build!\raddbg_dump.exe" || goto:$MainError
-    if "%ryan_scratch%"=="1"       !compile!             "!_root!\src\scratch\ryan_scratch.c"                                !compile_link! "%out%!_build!\ryan_scratch.exe" || goto:$MainError
-    if "%cpp_tests%"=="1"          !compile!             "!_root!\src\scratch\i_hate_c_plus_plus.cpp"                        !compile_link! "%out%!_build!\cpp_tests.exe" || goto:$MainError
-    if "%look_at_raddbg%"=="1"     !compile!             "!_root!\src\scratch\look_at_raddbg.c"                              !compile_link! "%out%!_build!\look_at_raddbg.exe" || goto:$MainError
-    if "%mule_main%"=="1"          del vc*.pdb mule*.pdb && %compile_release% %only_compile% "!_root!\src\mule\mule_inline.cpp" && %compile_release% %only_compile% "!_root!\src\mule\mule_o2.cpp" && %compile_debug% %EHsc% "!_root!\src\mule\mule_main.cpp" "!_root!\src\mule\mule_c.c" mule_inline.obj mule_o2.obj !compile_link! "%out%!_build!\mule_main.exe" || goto:$MainError
-    if "%mule_module%"=="1"        !compile!             "!_root!\src\mule\mule_module.cpp"                                  !compile_link! %link_dll% "%out%mule_module.dll" || goto:$MainError
-    if "%mule_hotload%"=="1"       !compile! ""!_root!\src\mule\mule_hotload_main.c" !compile_link! "%out%mule_hotload.exe" & !compile! "!_root!\src\mule\mule_hotload_module_main.c" !compile_link! %link_dll% %out%mule_hotload_module.dll || goto:$MainError
+    if "%raddbg%"=="1"             !compile! %gfx%       "!_root!\src\raddbg\raddbg_main.cpp"                                !compile_link! %out%"!_build!\raddbg.exe"
+    if errorlevel 1 goto:$MainError
+    if "%raddbg_from_pdb%"=="1"    !compile!             "!_root!\src\raddbg_convert\pdb\raddbg_from_pdb_main.c"             !compile_link! %out%"!_build!\raddbg_from_pdb.exe"
+    if errorlevel 1 goto:$MainError
+    if "%raddbg_from_dwarf%"=="1"  !compile!             "!_root!\src\raddbg_convert\dwarf\raddbg_from_dwarf.c"              !compile_link! %out%"!_build!\raddbg_from_dwarf.exe"
+    if errorlevel 1 goto:$MainError
+    if "%raddbg_dump%"=="1"        !compile!             "!_root!\src\raddbg_dump\raddbg_dump.c"                             !compile_link! %out%"!_build!\raddbg_dump.exe"
+    if errorlevel 1 goto:$MainError
+    if "%ryan_scratch%"=="1"       !compile!             "!_root!\src\scratch\ryan_scratch.c"                                !compile_link! %out%"!_build!\ryan_scratch.exe"
+    if errorlevel 1 goto:$MainError
+    if "%cpp_tests%"=="1"          !compile!             "!_root!\src\scratch\i_hate_c_plus_plus.cpp"                        !compile_link! %out%"!_build!\cpp_tests.exe"
+    if errorlevel 1 goto:$MainError
+    if "%look_at_raddbg%"=="1"     !compile!             "!_root!\src\scratch\look_at_raddbg.c"                              !compile_link! %out%"!_build!\look_at_raddbg.exe"
+    if errorlevel 1 goto:$MainError
+    if "%mule_main%"=="1"          del vc*.pdb mule*.pdb && %compile_release% %only_compile% "!_root!\src\mule\mule_inline.cpp" && %compile_release% %only_compile% "!_root!\src\mule\mule_o2.cpp" && %compile_debug% %EHsc% "!_root!\src\mule\mule_main.cpp" "!_root!\src\mule\mule_c.c" mule_inline.obj mule_o2.obj !compile_link! %out%"!_build!\mule_main.exe"
+    if errorlevel 1 goto:$MainError
+    if "%mule_module%"=="1"        !compile!             "!_root!\src\mule\mule_module.cpp"                                  !compile_link! %link_dll% "%out%mule_module.dll"
+    if errorlevel 1 goto:$MainError
+    if "%mule_hotload%"=="1"       !compile! ""!_root!\src\mule\mule_hotload_main.c" !compile_link! "%out%mule_hotload.exe" & !compile! "!_root!\src\mule\mule_hotload_module_main.c" !compile_link! %link_dll% %out%mule_hotload_module.dll
+    if errorlevel 1 goto:$MainError
 
     :: --- Unset ------------------------------------------------------------------
     for %%a in (%*) do set "%%a=0"
@@ -211,8 +236,8 @@ exit /b %errorlevel%
     goto:$MainDone
 
     :$MainError
-    goto:$MainDone
     set _error=1
+    goto:$MainDone
 
     :$MainDone
 endlocal & exit /b %_error%
