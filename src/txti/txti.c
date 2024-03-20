@@ -940,11 +940,8 @@ txti_set_external_change_detection_enabled(B32 enabled)
 internal void
 txti_mut_thread_entry_point(void *p)
 {
-  TCTX tctx_;
-  tctx_init_and_equip(&tctx_);
-  
   U64 mut_thread_idx = (U64)p;
-  ProfThreadName("[txti] mut #%I64u", mut_thread_idx);
+  ThreadNameF("[txti] mut #%I64u", mut_thread_idx);
   TXTI_MutThread *mut_thread = &txti_state->mut_threads[mut_thread_idx];
   for(;;)
   {
@@ -1249,9 +1246,7 @@ txti_mut_thread_entry_point(void *p)
 internal void
 txti_detector_thread_entry_point(void *p)
 {
-  TCTX tctx_;
-  tctx_init_and_equip(&tctx_);
-  ProfThreadName("[txti] detector");
+  ThreadNameF("[txti] detector");
   for(;;)
   {
     if(ins_atomic_u64_eval(&txti_state->detector_thread_enabled))

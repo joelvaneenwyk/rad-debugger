@@ -2,15 +2,19 @@
 // Licensed under the MIT license (https://opensource.org/license/mit/)
 
 ////////////////////////////////
+//~ rjf: Generated Code
+
+#include "generated/ctrl.meta.c"
+
+////////////////////////////////
 //~ rjf: Main Layer Initialization
 
 internal void
-ctrl_init(CTRL_WakeupFunctionType *wakeup_hook)
+ctrl_init(void)
 {
   Arena *arena = arena_alloc();
   ctrl_state = push_array(arena, CTRL_State, 1);
   ctrl_state->arena = arena;
-  ctrl_state->wakeup_hook = wakeup_hook;
   for(Architecture arch = (Architecture)0; arch < Architecture_COUNT; arch = (Architecture)(arch+1))
   {
     String8 *reg_names = regs_reg_code_string_table_from_architecture(arch);
@@ -65,6 +69,15 @@ ctrl_init(CTRL_WakeupFunctionType *wakeup_hook)
   {
     ctrl_state->ms_threads[idx] = os_launch_thread(ctrl_mem_stream_thread__entry_point, (void *)idx, 0);
   }
+}
+
+////////////////////////////////
+//~ rjf: Wakeup Callback Registration
+
+internal void
+ctrl_set_wakeup_hook(CTRL_WakeupFunctionType *wakeup_hook)
+{
+  ctrl_state->wakeup_hook = wakeup_hook;
 }
 
 ////////////////////////////////
@@ -199,7 +212,7 @@ ctrl_append_resolved_module_user_bp_traps(Arena *arena, DEMON_Handle process, DE
   DBGI_Scope *scope = dbgi_scope_open();
   String8 exe_path = demon_full_path_from_module(scratch.arena, module);
   DBGI_Parse *dbgi = dbgi_parse_from_exe_path(scope, exe_path, max_U64);
-  RADDBG_Parsed *rdbg = &dbgi->rdbg;
+  RDI_Parsed *rdi = &dbgi->rdi;
   U64 base_vaddr = demon_base_vaddr_from_module(module);
   for(CTRL_UserBreakpointNode *n = user_bps->first; n != 0; n = n->next)
   {
@@ -224,16 +237,16 @@ ctrl_append_resolved_module_user_bp_traps(Arena *arena, DEMON_Handle process, DE
         // rjf: filename -> src_id
         U32 src_id = 0;
         {
-          RADDBG_NameMap *mapptr = raddbg_name_map_from_kind(rdbg, RADDBG_NameMapKind_NormalSourcePaths);
+          RDI_NameMap *mapptr = rdi_name_map_from_kind(rdi, RDI_NameMapKind_NormalSourcePaths);
           if(mapptr != 0)
           {
-            RADDBG_ParsedNameMap map = {0};
-            raddbg_name_map_parse(rdbg, mapptr, &map);
-            RADDBG_NameMapNode *node = raddbg_name_map_lookup(rdbg, &map, filename_normalized.str, filename_normalized.size);
+            RDI_ParsedNameMap map = {0};
+            rdi_name_map_parse(rdi, mapptr, &map);
+            RDI_NameMapNode *node = rdi_name_map_lookup(rdi, &map, filename_normalized.str, filename_normalized.size);
             if(node != 0)
             {
               U32 id_count = 0;
-              U32 *ids = raddbg_matches_from_map_node(rdbg, node, &id_count);
+              U32 *ids = rdi_matches_from_map_node(rdi, node, &id_count);
               if(id_count > 0)
               {
                 src_id = ids[0];
@@ -244,11 +257,11 @@ ctrl_append_resolved_module_user_bp_traps(Arena *arena, DEMON_Handle process, DE
         
         // rjf: src_id * pt -> push
         {
-          RADDBG_SourceFile *src = raddbg_element_from_idx(rdbg, source_files, src_id);
-          RADDBG_ParsedLineMap line_map = {0};
-          raddbg_line_map_from_source_file(rdbg, src, &line_map);
+          RDI_SourceFile *src = rdi_element_from_idx(rdi, source_files, src_id);
+          RDI_ParsedLineMap line_map = {0};
+          rdi_line_map_from_source_file(rdi, src, &line_map);
           U32 voff_count = 0;
-          U64 *voffs = raddbg_line_voffs_from_num(&line_map, pt.line, &voff_count);
+          U64 *voffs = rdi_line_voffs_from_num(&line_map, pt.line, &voff_count);
           for(U32 i = 0; i < voff_count; i += 1)
           {
             U64 vaddr = voffs[i] + base_vaddr;
@@ -263,21 +276,21 @@ ctrl_append_resolved_module_user_bp_traps(Arena *arena, DEMON_Handle process, DE
       {
         String8 symbol_name = bp->string;
         U64 voff = bp->u64;
-        if(rdbg != 0 && rdbg->procedures != 0)
+        if(rdi != 0 && rdi->procedures != 0)
         {
-          RADDBG_NameMap *mapptr = raddbg_name_map_from_kind(rdbg, RADDBG_NameMapKind_Procedures);
+          RDI_NameMap *mapptr = rdi_name_map_from_kind(rdi, RDI_NameMapKind_Procedures);
           if(mapptr != 0)
           {
-            RADDBG_ParsedNameMap map = {0};
-            raddbg_name_map_parse(rdbg, mapptr, &map);
-            RADDBG_NameMapNode *node = raddbg_name_map_lookup(rdbg, &map, symbol_name.str, symbol_name.size);
+            RDI_ParsedNameMap map = {0};
+            rdi_name_map_parse(rdi, mapptr, &map);
+            RDI_NameMapNode *node = rdi_name_map_lookup(rdi, &map, symbol_name.str, symbol_name.size);
             if(node != 0)
             {
               U32 id_count = 0;
-              U32 *ids = raddbg_matches_from_map_node(rdbg, node, &id_count);
+              U32 *ids = rdi_matches_from_map_node(rdi, node, &id_count);
               for(U32 match_i = 0; match_i < id_count; match_i += 1)
               {
-                U64 proc_voff = raddbg_first_voff_from_proc(rdbg, ids[match_i]);
+                U64 proc_voff = rdi_first_voff_from_proc(rdi, ids[match_i]);
                 U64 proc_vaddr = proc_voff + base_vaddr;
                 DEMON_Trap trap = {process, proc_vaddr + voff, (U64)bp};
                 demon_trap_chunk_list_push(arena, traps_out, 256, &trap);
@@ -676,15 +689,6 @@ internal void
 ctrl_halt(void)
 {
   demon_halt(0, 0);
-}
-
-//- rjf: entity introspection
-
-internal U32
-ctrl_id_from_machine_entity(CTRL_MachineID id, DEMON_Handle handle)
-{
-  U32 result = 0;
-  return result;
 }
 
 //- rjf: exe -> dbg path mapping
@@ -1513,9 +1517,7 @@ ctrl_u2ms_dequeue_req(CTRL_MachineID *out_machine_id, CTRL_Handle *out_process, 
 internal void
 ctrl_thread__entry_point(void *p)
 {
-  TCTX tctx_;
-  tctx_init_and_equip(&tctx_);
-  ThreadName("[ctrl] thread");
+  ThreadNameF("[ctrl] thread");
   ProfBeginFunction();
   demon_primary_thread_begin();
   Temp scratch = scratch_begin(0, 0);
@@ -1638,21 +1640,21 @@ ctrl_thread__next_demon_event(Arena *arena, CTRL_Msg *msg, DEMON_RunCtrls *run_c
                 CTRL_Handle module = ctrl_handle_from_demon(modules.handles[0]);
                 String8 module_path = demon_full_path_from_module(scratch.arena, ctrl_demon_handle_from_ctrl(module));
                 DBGI_Parse *dbgi = dbgi_parse_from_exe_path(scope, module_path, max_U64);
-                RADDBG_Parsed *rdbg = &dbgi->rdbg;
-                RADDBG_NameMap *unparsed_map = raddbg_name_map_from_kind(rdbg, RADDBG_NameMapKind_GlobalVariables);
-                if(rdbg->global_variables != 0 && unparsed_map != 0)
+                RDI_Parsed *rdi = &dbgi->rdi;
+                RDI_NameMap *unparsed_map = rdi_name_map_from_kind(rdi, RDI_NameMapKind_GlobalVariables);
+                if(rdi->global_variables != 0 && unparsed_map != 0)
                 {
-                  RADDBG_ParsedNameMap map = {0};
-                  raddbg_name_map_parse(rdbg, unparsed_map, &map);
+                  RDI_ParsedNameMap map = {0};
+                  rdi_name_map_parse(rdi, unparsed_map, &map);
                   String8 name = str8_lit("__asan_shadow_memory_dynamic_address");
-                  RADDBG_NameMapNode *node = raddbg_name_map_lookup(rdbg, &map, name.str, name.size);
+                  RDI_NameMapNode *node = rdi_name_map_lookup(rdi, &map, name.str, name.size);
                   if(node != 0)
                   {
                     U32 id_count = 0;
-                    U32 *ids = raddbg_matches_from_map_node(rdbg, node, &id_count);
+                    U32 *ids = rdi_matches_from_map_node(rdi, node, &id_count);
                     if(id_count > 0)
                     {
-                      RADDBG_GlobalVariable *global_var = raddbg_element_from_idx(rdbg, global_variables, ids[0]);
+                      RDI_GlobalVariable *global_var = rdi_element_from_idx(rdi, global_variables, ids[0]);
                       U64 global_var_voff = global_var->voff;
                       U64 global_var_vaddr = global_var->voff + demon_base_vaddr_from_module(ctrl_demon_handle_from_ctrl(module));
                       Architecture arch = demon_arch_from_object(ev->thread);
@@ -2143,10 +2145,10 @@ ctrl_thread__launch_and_init(CTRL_Msg *msg)
             U64 module_base_vaddr = demon_base_vaddr_from_module(module);
             String8 exe_path = demon_full_path_from_module(scratch.arena, module);
             DBGI_Parse *dbgi = dbgi_parse_from_exe_path(scope, exe_path, max_U64);
-            RADDBG_Parsed *rdbg = &dbgi->rdbg;
-            RADDBG_NameMap *unparsed_map = raddbg_name_map_from_kind(rdbg, RADDBG_NameMapKind_Procedures);
-            RADDBG_ParsedNameMap map = {0};
-            raddbg_name_map_parse(rdbg, unparsed_map, &map);
+            RDI_Parsed *rdi = &dbgi->rdi;
+            RDI_NameMap *unparsed_map = rdi_name_map_from_kind(rdi, RDI_NameMapKind_Procedures);
+            RDI_ParsedNameMap map = {0};
+            rdi_name_map_parse(rdi, unparsed_map, &map);
             
             //- rjf: add trap for user-specified entry point, if specified
             B32 entries_found = 0;
@@ -2157,15 +2159,15 @@ ctrl_thread__launch_and_init(CTRL_Msg *msg)
                 U32 procedure_id = 0;
                 {
                   String8 name = n->string;
-                  RADDBG_NameMapNode *node = raddbg_name_map_lookup(rdbg, &map, name.str, name.size);
+                  RDI_NameMapNode *node = rdi_name_map_lookup(rdi, &map, name.str, name.size);
                   U32 id_count = 0;
-                  U32 *ids = raddbg_matches_from_map_node(rdbg, node, &id_count);
+                  U32 *ids = rdi_matches_from_map_node(rdi, node, &id_count);
                   if(id_count > 0)
                   {
                     procedure_id = ids[0];
                   }
                 }
-                U64 voff = raddbg_first_voff_from_proc(rdbg, procedure_id);
+                U64 voff = rdi_first_voff_from_proc(rdi, procedure_id);
                 if(voff != 0)
                 {
                   entries_found = 1;
@@ -2183,15 +2185,15 @@ ctrl_thread__launch_and_init(CTRL_Msg *msg)
                 U32 procedure_id = 0;
                 {
                   String8 name = n->string;
-                  RADDBG_NameMapNode *node = raddbg_name_map_lookup(rdbg, &map, name.str, name.size);
+                  RDI_NameMapNode *node = rdi_name_map_lookup(rdi, &map, name.str, name.size);
                   U32 id_count = 0;
-                  U32 *ids = raddbg_matches_from_map_node(rdbg, node, &id_count);
+                  U32 *ids = rdi_matches_from_map_node(rdi, node, &id_count);
                   if(id_count > 0)
                   {
                     procedure_id = ids[0];
                   }
                 }
-                U64 voff = raddbg_first_voff_from_proc(rdbg, procedure_id);
+                U64 voff = rdi_first_voff_from_proc(rdi, procedure_id);
                 if(voff != 0)
                 {
                   DEMON_Trap trap = {run_ctrls.run_entities[process_idx], module_base_vaddr + voff};
@@ -2216,15 +2218,15 @@ ctrl_thread__launch_and_init(CTRL_Msg *msg)
                 U32 procedure_id = 0;
                 {
                   String8 name = hi_entry_points[idx];
-                  RADDBG_NameMapNode *node = raddbg_name_map_lookup(rdbg, &map, name.str, name.size);
+                  RDI_NameMapNode *node = rdi_name_map_lookup(rdi, &map, name.str, name.size);
                   U32 id_count = 0;
-                  U32 *ids = raddbg_matches_from_map_node(rdbg, node, &id_count);
+                  U32 *ids = rdi_matches_from_map_node(rdi, node, &id_count);
                   if(id_count > 0)
                   {
                     procedure_id = ids[0];
                   }
                 }
-                U64 voff = raddbg_first_voff_from_proc(rdbg, procedure_id);
+                U64 voff = rdi_first_voff_from_proc(rdi, procedure_id);
                 if(voff != 0)
                 {
                   entries_found = 1;
@@ -2260,15 +2262,15 @@ ctrl_thread__launch_and_init(CTRL_Msg *msg)
                 U32 procedure_id = 0;
                 {
                   String8 name = lo_entry_points[idx];
-                  RADDBG_NameMapNode *node = raddbg_name_map_lookup(rdbg, &map, name.str, name.size);
+                  RDI_NameMapNode *node = rdi_name_map_lookup(rdi, &map, name.str, name.size);
                   U32 id_count = 0;
-                  U32 *ids = raddbg_matches_from_map_node(rdbg, node, &id_count);
+                  U32 *ids = rdi_matches_from_map_node(rdi, node, &id_count);
                   if(id_count > 0)
                   {
                     procedure_id = ids[0];
                   }
                 }
-                U64 voff = raddbg_first_voff_from_proc(rdbg, procedure_id);
+                U64 voff = rdi_first_voff_from_proc(rdi, procedure_id);
                 if(voff != 0)
                 {
                   entries_found = 1;
@@ -2866,7 +2868,7 @@ ctrl_thread__run(CTRL_Msg *msg)
           {
             String8 exe_path = demon_full_path_from_module(temp.arena, module);
             DBGI_Parse *dbgi = dbgi_parse_from_exe_path(scope, exe_path, max_U64);
-            RADDBG_Parsed *rdbg = &dbgi->rdbg;
+            RDI_Parsed *rdi = &dbgi->rdi;
             for(String8Node *condition_n = conditions.first; condition_n != 0; condition_n = condition_n->next)
             {
               String8 string = condition_n->string;
@@ -2874,12 +2876,12 @@ ctrl_thread__run(CTRL_Msg *msg)
               {
                 parse_ctx.arch = arch;
                 parse_ctx.ip_voff = thread_rip_voff;
-                parse_ctx.rdbg = rdbg;
+                parse_ctx.rdi = rdi;
                 parse_ctx.type_graph = tg_graph_begin(bit_size_from_arch(arch)/8, 256);
                 parse_ctx.regs_map = ctrl_string2reg_from_arch(arch);
                 parse_ctx.reg_alias_map = ctrl_string2alias_from_arch(arch);
-                parse_ctx.locals_map = eval_push_locals_map_from_raddbg_voff(temp.arena, rdbg, thread_rip_voff);
-                parse_ctx.member_map = eval_push_member_map_from_raddbg_voff(temp.arena, rdbg, thread_rip_voff);
+                parse_ctx.locals_map = eval_push_locals_map_from_rdi_voff(temp.arena, rdi, thread_rip_voff);
+                parse_ctx.member_map = eval_push_member_map_from_rdi_voff(temp.arena, rdi, thread_rip_voff);
               }
               EVAL_TokenArray tokens = eval_token_array_from_text(temp.arena, string);
               EVAL_ParseResult parse = eval_parse_expr_from_text_tokens(temp.arena, &parse_ctx, string, &tokens);
@@ -2889,7 +2891,7 @@ ctrl_thread__run(CTRL_Msg *msg)
               EVAL_IRTreeAndType ir_tree_and_type = {&eval_irtree_nil};
               if(parse_has_expr && errors.count == 0)
               {
-                ir_tree_and_type = eval_irtree_and_type_from_expr(temp.arena, parse_ctx.type_graph, rdbg, &eval_string2expr_map_nil, parse.expr, &errors);
+                ir_tree_and_type = eval_irtree_and_type_from_expr(temp.arena, parse_ctx.type_graph, rdi, &eval_string2expr_map_nil, parse.expr, &errors);
               }
               EVAL_OpList op_list = {0};
               if(parse_has_expr && ir_tree_and_type.tree != &eval_irtree_nil)
@@ -2916,7 +2918,7 @@ ctrl_thread__run(CTRL_Msg *msg)
                 machine.tls_base = &tls_base;
                 eval = eval_interpret(&machine, bytecode);
               }
-              if(eval.bad_eval == 0 && eval.value.u64 == 0)
+              if(eval.code == EVAL_ResultCode_Good && eval.value.u64 == 0)
               {
                 hit_user_bp = 0;
                 hit_conditional_bp_but_filtered = 1;
@@ -3269,8 +3271,6 @@ ctrl_thread__single_step(CTRL_Msg *msg)
 internal void
 ctrl_mem_stream_thread__entry_point(void *p)
 {
-  TCTX tctx_ = {0};
-  tctx_init_and_equip(&tctx_);
   CTRL_ProcessMemoryCache *cache = &ctrl_state->process_memory_cache;
   for(;;)
   {

@@ -18,7 +18,7 @@ jobs:
       matrix:
         config: [debug, release]
         compiler: [msvc, clang]
-        target: [raddbg, raddbg_from_pdb, raddbg_from_dwarf]
+        target: [raddbg, raddbg_from_pdb, raddbg_from_dwarf, raddbgi_dump]
 
     name: "⚙️ ${{ matrix.target }} - ${{ matrix.compiler }} - ${{ matrix.config }}"
     steps:

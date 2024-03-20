@@ -9,6 +9,8 @@
 // [x] CRT asserts - stepping over int 29 should work just like stepping over
 //     an int3
 // [ ] committing needs to happen when navigating focus away for any reason
+// [ ] better discoverability for view rules - have better help hover tooltip,
+//     info on arguments, and better autocomplete lister
 //
 // [ ] source view -> floating margin/line-nums
 // [ ] theme colors -> more explicit about e.g. opaque backgrounds vs. floating
@@ -49,6 +51,11 @@
 ////////////////////////////////
 //~ rjf: Hot, High Priority Tasks (Complete Unusability, Crashes, Fire-Worthy)
 //
+// [ ] raddbg jai.exe my_file.jai -- foobar -> raddbg consumes `--` incorrectly
+// [ ] PDB files distributed with the build are not found by DbgHelp!!!
+// [ ] Jai compiler debugging crash
+// [ ] raddbgi file regeneration too strict
+//
 // [ ] Jump table thunks, on code w/o /INCREMENTAL:NO
 //
 // [ ] ** Thread/process control bullet-proofing, including solo-step mode
@@ -72,6 +79,8 @@
 // [ ] disasm animation & go-to-address
 //
 // [ ] visualize remapped files (via path map)
+//
+// [x] DBGI layer is case-sensitive even on case-insensitive systems
 
 ////////////////////////////////
 //~ rjf: Hot, Medium Priority Tasks (Low-Hanging-Fruit Features, UI Jank, Cleanup)
@@ -400,26 +409,6 @@
 #define RADDBG_H
 
 ////////////////////////////////
-//~ rjf: Build Settings
-
-#define RADDBG_VERSION_MAJOR 0
-#define RADDBG_VERSION_MINOR 9
-#define RADDBG_VERSION_PATCH 8
-#define RADDBG_VERSION_STRING_LITERAL Stringify(RADDBG_VERSION_MAJOR) "." Stringify(RADDBG_VERSION_MINOR) "." Stringify(RADDBG_VERSION_PATCH)
-#if defined(NDEBUG)
-# define RADDBG_BUILD_STR ""
-#else
-# define RADDBG_BUILD_STR " [Debug]"
-#endif
-#if defined(RADDBG_GIT)
-# define RADDBG_GIT_STR " [" RADDBG_GIT "]"
-#else
-# define RADDBG_GIT_STR ""
-#endif
-#define RADDBG_TITLE_STRING_LITERAL "The RAD Debugger (" RADDBG_VERSION_STRING_LITERAL " ALPHA) - " __DATE__ "" RADDBG_GIT_STR RADDBG_BUILD_STR
-#define RADDBG_GITHUB_ISSUES "https://github.com/EpicGames/raddebugger/issues"
-
-////////////////////////////////
 //~ rjf: Top-Level Execution Types
 
 typedef enum ExecMode
@@ -446,8 +435,6 @@ read_only global String8 ipc_shared_memory_name = str8_lit_comp("_raddbg_ipc_sha
 read_only global String8 ipc_semaphore_name = str8_lit_comp("_raddbg_ipc_semaphore_");
 global U64 frame_time_us_history[64] = {0};
 global U64 frame_time_us_history_idx = 0;
-global Arena *leftover_events_arena = 0;
-global OS_EventList leftover_events = {0};
 
 ////////////////////////////////
 //~ rjf: Frontend Entry Points

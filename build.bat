@@ -29,7 +29,7 @@ endlocal & exit /b 0
 :: `build raddbg clang`
 :: `build raddbg release`
 :: `build raddbg asan telemetry`
-:: `build raddbg_from_pdb`
+:: `build raddbgi_from_pdb`
 ::
 :: For a full list of possible build targets and their build command lines,
 :: search for @build_targets in this file.
