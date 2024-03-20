@@ -1,21 +1,4 @@
 @echo off && goto:$Main
-
-setlocal EnableDelayedExpansion
-call "C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Tools\MSVC\14.39.33519\bin\Hostx64\x64\cl.exe" ^
-  /Od ^
-  /I"M:\projects\rad-debugger\src" ^
-  /I"M:\projects\rad-debugger\local" ^
-  /I"C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Tools\MSVC\14.39.33519\include" ^
-  /I"C:\Program Files (x86)\Windows Kits\10\Include\10.0.22621.0\ucrt" ^
-  /I"C:\Program Files (x86)\Windows Kits\10\Include\10.0.22621.0\um" ^
-  /I"C:\Program Files (x86)\Windows Kits\10\Include\10.0.22621.0\shared" ^
-  /nologo /FC /Z7 ^
-  "M:\projects\rad-debugger\src\metagen\metagen_main.c" "/FoM:\projects\rad-debugger\build\metagen.o" ^
-  /link /MANIFEST:EMBED /INCREMENTAL:NO ^
-  /natvis:"M:\projects\rad-debugger\src\natvis\base.natvis" ^
-  /out:"M:\projects\rad-debugger\build\metagen.exe"
-endlocal & exit /b 0
-
 :: --- Usage Notes (2024/1/10) ------------------------------------------------
 ::
 :: This is a central build script for the RAD Debugger project. It takes a list
@@ -40,7 +23,10 @@ endlocal & exit /b 0
 :: - `telemetry`: enable RAD telemetry profiling support
 
 :Command
-    setlocal EnableDelayedExpansion
+::-------------------------------------------------
+:: Run a command and echo that command to console
+::-------------------------------------------------
+setlocal EnableExtensions
     set "_command=%*"
     goto:$CommandRun
 
@@ -60,10 +46,14 @@ endlocal & exit /b 0
 endlocal & exit /b %errorlevel%
 
 :Find
+::-------------------------------------------------
+:: Look for requested executable and set the provided variable to the full path
+:: of that executable if found.
+::-------------------------------------------------
 setlocal EnableDelayedExpansion
     set "_var=%~1"
     set "_exe=%~2"
-    if ["!_exe!"]==[""] set "_exe=!%_var%!"
+    if ["!_exe!"]==[""] set "_exe=%_var%"
 
     goto:$InnerFindEnd
     :$InnerFind
@@ -74,7 +64,7 @@ setlocal EnableDelayedExpansion
           shift
           :$InnerFindLoop
             if "%~1"=="" exit /b 0
-            set "_out=%~1\!_executable!"
+            set "_out=%~1\!_executable!.exe"
             shift
           if not exist "!_out!" goto:$InnerFindLoop
       endlocal & (
@@ -95,10 +85,11 @@ setlocal EnableDelayedExpansion
     if not exist "!_result!" (
       set "_result=!_exe!"
     ) else (
-      echo !_var!: "!_result!"
+      set _result="!_result!"
     )
+    echo !_var! - !_result!
 endlocal & (
-  set "%_var%=%_result%"
+  set %_var%=%_result%
 )
 exit /b %errorlevel%
 
@@ -128,8 +119,8 @@ setlocal EnableDelayedExpansion
     if "%clang%"=="1"   set msvc=0 && echo [clang compile]
     if "%~1"==""        echo [default mode, assuming `raddbg` build] && set raddbg=1
 
-    call :Find cl     "cl.exe"
-    call :Find clang  "clang.exe"
+    call :Find cl
+    call :Find clang
 
     :: --- Unpack Command Line Build Arguments ------------------------------------
     set auto_compile_flags=
@@ -144,10 +135,10 @@ setlocal EnableDelayedExpansion
     :: --- Compile/Link Line Definitions ------------------------------------------
     set      "cl_common=/I"!_root!\src" /I"!_root!\local" !_inc! /nologo /FC /Z7"
     set   "clang_common=-I"!_root!\src" -I"!_root!\local" -gcodeview -fdiagnostics-absolute-paths -Wall -Wno-unknown-warning-option -Wno-missing-braces -Wno-unused-function -Wno-writable-strings -Wno-unused-value -Wno-unused-variable -Wno-unused-local-typedef -Wno-deprecated-register -Wno-deprecated-declarations -Wno-unused-but-set-variable -Wno-single-bit-bitfield-constant-conversion -Xclang -flto-visibility-public-std -D_USE_MATH_DEFINES -Dstrdup=_strdup -Dgnu_printf=printf"
-    set       "cl_debug="!cl!" /Od %cl_common% %auto_compile_flags%"
-    set     "cl_release="!cl!" /O2 /DNDEBUG %cl_common% %auto_compile_flags%"
-    set    "clang_debug="!clang!" -g -O0 %clang_common% %auto_compile_flags%"
-    set  "clang_release="!clang!" -g -O2 -DNDEBUG %clang_common% %auto_compile_flags%"
+    set       "cl_debug=!cl! /Od %cl_common% %auto_compile_flags%"
+    set     "cl_release=!cl! /O2 /DNDEBUG %cl_common% %auto_compile_flags%"
+    set    "clang_debug=!clang! -g -O0 %clang_common% %auto_compile_flags%"
+    set  "clang_release=!clang! -g -O2 -DNDEBUG %clang_common% %auto_compile_flags%"
     set        "cl_link=/link /MANIFEST:EMBED /INCREMENTAL:NO /natvis:"!_root!\src\natvis\base.natvis" "!_build!\logo.res" "
     set     "clang_link=-fuse-ld=lld -Xlinker /MANIFEST:EMBED -Xlinker /natvis:"!_root!\src\natvis\base.natvis" "!_build!\logo.res" "
     set         "cl_out=/out:"
@@ -163,8 +154,8 @@ setlocal EnableDelayedExpansion
     if "%clang%"=="1" set "only_compile=-c"
     if "%msvc%"=="1"  set "EHsc=/EHsc"
     if "%clang%"=="1" set "EHsc="
-    if "%msvc%"=="1"  call :Find rc "rc.exe"
-    if "%clang%"=="1" call :Find rc "llvm-rc.exe"
+    if "%msvc%"=="1"  call :Find rc
+    if "%clang%"=="1" call :Find rc "llvm-rc"
 
     :: --- Choose Compile/Link Lines ----------------------------------------------
     if "%msvc%"=="1"      set "compile_debug=!cl_debug!"
@@ -184,7 +175,7 @@ setlocal EnableDelayedExpansion
 
     :: --- Produce Logo Icon File -------------------------------------------------
     cd /d "!_build!"
-    call :Command "!rc!" /nologo %cl_obj%"!_build!\logo.res" "!_root!\data\logo.rc"
+    call :Command !rc! /nologo %cl_obj%"!_build!\logo.res" "!_root!\data\logo.rc"
     if errorlevel 1 goto:$MainError
 
     :: --- Get Current Git Commit Id ----------------------------------------------
