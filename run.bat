@@ -39,12 +39,23 @@ setlocal EnableDelayedExpansion
     if not exist "!_vcvarsall!" goto:$MainDone
 
     call "!_vcvarsall!" x64
-    call "%~dp0build.old.bat" raddbg msvc debug             || goto:$MainDone
-    call "%~dp0build.old.bat" raddbg_from_pdb msvc debug    || goto:$MainDone
-    call "%~dp0build.old.bat" raddbg_from_dwarf msvc debug  || goto:$MainDone
-    call "%~dp0build.old.bat" raddbg clang debug            || goto:$MainDone
-    call "%~dp0build.old.bat" raddbg_from_pdb clang debug   || goto:$MainDone
-    call "%~dp0build.old.bat" raddbg_from_dwarf clang debug || goto:$MainDone
+    call "%~dp0build.bat" raddbg              msvc    debug
+    if errorlevel 1 goto:$MainDone
+    call "%~dp0build.bat" raddbg_from_pdb     msvc    debug
+    if errorlevel 1 goto:$MainDone
+    call "%~dp0build.bat" raddbg_from_dwarf   msvc    debug
+    if errorlevel 1 goto:$MainDone
+    call "%~dp0build.bat" raddbg              clang   debug
+    if errorlevel 1 goto:$MainDone
+    call "%~dp0build.bat" raddbg_from_pdb     clang   debug
+    if errorlevel 1 goto:$MainDone
+    call "%~dp0build.bat" raddbg_from_dwarf   clang   debug
+    if errorlevel 1 goto:$MainDone
+
+    :$MainError
+    set _error=%errorlevel%
+    echo [ERROR] Failed to build projects with '!_error!' return code.
+    goto:$MainDone
 
     :$MainDone
 endlocal
