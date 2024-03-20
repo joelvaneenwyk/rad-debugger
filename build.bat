@@ -23,6 +23,35 @@ goto:$Main
 :: - `asan`: enable address sanitizer
 :: - `telemetry`: enable RAD telemetry profiling support
 
+:Command
+    setlocal EnableDelayedExpansion
+    set "_command=%*"
+
+    goto:$CommandVar
+    :CommandVar
+        setlocal EnableDelayedExpansion
+        set "_cmd=!%~1!"
+        set "_cmd=!_cmd:      = !"
+        set "_cmd=!_cmd:    = !"
+        set "_cmd=!_cmd:   = !"
+        set "_cmd=!_cmd:  = !"
+        set _error_value=0
+
+        :$RunCommand
+        echo ##[cmd] !_cmd!
+        cd /D "%~dp0build"
+        call !_cmd!
+        set _error_value=%ERRORLEVEL%
+
+        :$CommandDone
+        endlocal & (
+            exit /b %_error_value%
+        )
+    :$CommandVar
+
+    call :CommandVar "_command"
+endlocal & exit /b %errorlevel%
+
 :Find
     setlocal EnableDelayedExpansion
     set "_var=%~1"
@@ -56,11 +85,15 @@ goto:$Main
       "C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Tools\MSVC\14.39.33519\bin\Hostx64\x64"
 
     set "_result=!%_var%!"
-    if not exist "!_result!" set "_result=!_exe!"
+    if not exist "!_result!" (
+      set "_result=!_exe!"
+    ) else (
+      echo !_var!: "!_result!"
+    )
 endlocal & (
   set "%_var%=%_result%"
 )
-exit /b 0
+exit /b %errorlevel%
 
 ::
 ::-------------------------------
@@ -68,9 +101,10 @@ exit /b 0
 ::-------------------------------
 :$Main
     setlocal EnableDelayedExpansion
-    cd /D "%~dp0"
-
-    set _error=0
+    set "_error=0"
+    set "_root=%~dp0"
+    if "!_root:~-1!"=="\" set "_root=!_root:~0,-1!"
+    set "_build=!_root!\build"
 
     :: --- Unpack Arguments -------------------------------------------------------
     for %%a in (%*) do set "%%a=1"
@@ -82,25 +116,28 @@ exit /b 0
     if "%clang%"=="1"   set msvc=0 && echo [clang compile]
     if "%~1"==""        echo [default mode, assuming `raddbg` build] && set raddbg=1
 
-    call :Find cl "cl.exe"
-    echo cl is "!cl!"
-    call :Find clang "clang.exe"
-    echo clang is "!clang!"
+    call :Find cl     "cl.exe"
+    call :Find clang  "clang.exe"
 
     :: --- Unpack Command Line Build Arguments ------------------------------------
     set auto_compile_flags=
     if "%telemetry%"=="1" set auto_compile_flags=%auto_compile_flags% -DPROFILE_TELEMETRY=1 && echo [telemetry profiling enabled]
     if "%asan%"=="1"      set auto_compile_flags=%auto_compile_flags% -fsanitize=address && echo [asan enabled]
 
+    set "_inc=/I"C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Tools\MSVC\14.39.33519\include" "
+    set "_inc=!_inc! /I"C:\Program Files (x86)\Windows Kits\10\Include\10.0.22621.0\ucrt" "
+    set "_inc=!_inc! /I"C:\Program Files (x86)\Windows Kits\10\Include\10.0.22621.0\um" "
+    set "_inc=!_inc! /I"C:\Program Files (x86)\Windows Kits\10\Include\10.0.22621.0\shared" "
+
     :: --- Compile/Link Line Definitions ------------------------------------------
-    set      "cl_common=/I..\src\ /I..\local\ /nologo /FC /Z7"
-    set   "clang_common=-I..\src\ -I..\local\ -gcodeview -fdiagnostics-absolute-paths -Wall -Wno-unknown-warning-option -Wno-missing-braces -Wno-unused-function -Wno-writable-strings -Wno-unused-value -Wno-unused-variable -Wno-unused-local-typedef -Wno-deprecated-register -Wno-deprecated-declarations -Wno-unused-but-set-variable -Wno-single-bit-bitfield-constant-conversion -Xclang -flto-visibility-public-std -D_USE_MATH_DEFINES -Dstrdup=_strdup -Dgnu_printf=printf"
-    set       "cl_debug=call "!cl!" /Od %cl_common% %auto_compile_flags%"
-    set     "cl_release=call "!cl!" /O2 /DNDEBUG %cl_common% %auto_compile_flags%"
-    set    "clang_debug=call "!clang!" -g -O0 %clang_common% %auto_compile_flags%"
-    set  "clang_release=call "!clang!" -g -O2 -DNDEBUG %clang_common% %auto_compile_flags%"
-    set        "cl_link=/link /MANIFEST:EMBED /INCREMENTAL:NO /natvis:"%~dp0\src\natvis\base.natvis" logo.res"
-    set     "clang_link=-fuse-ld=lld -Xlinker /MANIFEST:EMBED -Xlinker /natvis:"%~dp0\src\natvis\base.natvis" logo.res"
+    set      "cl_common=/I"!_root!\src" /I"!_root!\local" !_inc! /nologo /FC /Z7"
+    set   "clang_common=-I"!_root!\src" -I"!_root!\local" -gcodeview -fdiagnostics-absolute-paths -Wall -Wno-unknown-warning-option -Wno-missing-braces -Wno-unused-function -Wno-writable-strings -Wno-unused-value -Wno-unused-variable -Wno-unused-local-typedef -Wno-deprecated-register -Wno-deprecated-declarations -Wno-unused-but-set-variable -Wno-single-bit-bitfield-constant-conversion -Xclang -flto-visibility-public-std -D_USE_MATH_DEFINES -Dstrdup=_strdup -Dgnu_printf=printf"
+    set       "cl_debug="!cl!" /Od %cl_common% %auto_compile_flags%"
+    set     "cl_release="!cl!" /O2 /DNDEBUG %cl_common% %auto_compile_flags%"
+    set    "clang_debug="!clang!" -g -O0 %clang_common% %auto_compile_flags%"
+    set  "clang_release="!clang!" -g -O2 -DNDEBUG %clang_common% %auto_compile_flags%"
+    set        "cl_link=/link /MANIFEST:EMBED /INCREMENTAL:NO /natvis:"!_root!\src\natvis\base.natvis" "!_build!\logo.res" "
+    set     "clang_link=-fuse-ld=lld -Xlinker /MANIFEST:EMBED -Xlinker /natvis:"!_root!\src\natvis\base.natvis" "!_build!\logo.res" "
     set         "cl_out=/out:"
     set      "clang_out=-o"
 
@@ -132,38 +169,36 @@ exit /b 0
     if not exist local mkdir local
 
     :: --- Produce Logo Icon File -------------------------------------------------
-    pushd build
-    "!rc!" /nologo /fo logo.res ..\data\logo.rc || exit /b 1
-    popd
+    cd /d "!_build!"
+    call :Command "!rc!" /nologo /fo "!_build!\logo.res" "!_root!\data\logo.rc" || goto:$MainError
 
     :: --- Get Current Git Commit Id ----------------------------------------------
-    for /f %%i in ('call git describe --always --dirty') do set "compile=!compile! -DRADDBG_GIT=\"%%i\""
+    for /f %%i in ('call "C:\Program Files\Git\bin\git.exe" describe --always --dirty') do (
+      set "compile=!compile! -DRADDBG_GIT="%%i""
+    )
 
     :: --- Build & Run Metaprogram ------------------------------------------------
-    echo Debug: !compile_debug!
     if "%no_meta%"=="1" (
       echo [skipped metagen]
       goto:$MainSkipMetagen
     )
-    pushd build
-    !compile_debug! "..\src\metagen\metagen_main.c" !compile_link! "%out%metagen.exe" || goto:$MainError
-    metagen.exe || goto:$MainError
-    popd
+    cd /d "!_build!"
+    call :Command !compile_debug! "!_root!\src\metagen\metagen_main.c" !compile_link! "%out%!_build!\metagen.exe"
+    if errorlevel 1 goto:$MainError
     :$MainSkipMetagen
 
     :: --- Build Everything (@build_targets) --------------------------------------
-    pushd build
-    if "%raddbg%"=="1"             !compile! %gfx%       ..\src\raddbg\raddbg_main.cpp                                !compile_link! %out%raddbg.exe || exit /b 1
-    if "%raddbg_from_pdb%"=="1"    !compile!             ..\src\raddbg_convert\pdb\raddbg_from_pdb_main.c             !compile_link! %out%raddbg_from_pdb.exe || exit /b 1
-    if "%raddbg_from_dwarf%"=="1"  !compile!             ..\src\raddbg_convert\dwarf\raddbg_from_dwarf.c              !compile_link! %out%raddbg_from_dwarf.exe || exit /b 1
-    if "%raddbg_dump%"=="1"        !compile!             ..\src\raddbg_dump\raddbg_dump.c                             !compile_link! %out%raddbg_dump.exe || exit /b 1
-    if "%ryan_scratch%"=="1"       !compile!             ..\src\scratch\ryan_scratch.c                                !compile_link! %out%ryan_scratch.exe || exit /b 1
-    if "%cpp_tests%"=="1"          !compile!             ..\src\scratch\i_hate_c_plus_plus.cpp                        !compile_link! %out%cpp_tests.exe || exit /b 1
-    if "%look_at_raddbg%"=="1"     !compile!             ..\src\scratch\look_at_raddbg.c                              !compile_link! %out%look_at_raddbg.exe || exit /b 1
-    if "%mule_main%"=="1"          del vc*.pdb mule*.pdb && %compile_release% %only_compile% ..\src\mule\mule_inline.cpp && %compile_release% %only_compile% ..\src\mule\mule_o2.cpp && %compile_debug% %EHsc% ..\src\mule\mule_main.cpp ..\src\mule\mule_c.c mule_inline.obj mule_o2.obj !compile_link! %out%mule_main.exe || exit /b 1
-    if "%mule_module%"=="1"        !compile!             ..\src\mule\mule_module.cpp                                  !compile_link! %link_dll% %out%mule_module.dll || exit /b 1
-    if "%mule_hotload%"=="1"       !compile! ..\src\mule\mule_hotload_main.c !compile_link! %out%mule_hotload.exe & !compile! ..\src\mule\mule_hotload_module_main.c !compile_link! %link_dll% %out%mule_hotload_module.dll || goto:$MainError
-    popd
+    cd /d "!_build!"
+    if "%raddbg%"=="1"             !compile! %gfx%       "!_root!\src\raddbg\raddbg_main.cpp"                                !compile_link! "%out%!_build!\raddbg.exe" || goto:$MainError
+    if "%raddbg_from_pdb%"=="1"    !compile!             "!_root!\src\raddbg_convert\pdb\raddbg_from_pdb_main.c"             !compile_link! "%out%!_build!\raddbg_from_pdb.exe" || goto:$MainError
+    if "%raddbg_from_dwarf%"=="1"  !compile!             "!_root!\src\raddbg_convert\dwarf\raddbg_from_dwarf.c"              !compile_link! "%out%!_build!\raddbg_from_dwarf.exe" || goto:$MainError
+    if "%raddbg_dump%"=="1"        !compile!             "!_root!\src\raddbg_dump\raddbg_dump.c"                             !compile_link! "%out%!_build!\raddbg_dump.exe" || goto:$MainError
+    if "%ryan_scratch%"=="1"       !compile!             "!_root!\src\scratch\ryan_scratch.c"                                !compile_link! "%out%!_build!\ryan_scratch.exe" || goto:$MainError
+    if "%cpp_tests%"=="1"          !compile!             "!_root!\src\scratch\i_hate_c_plus_plus.cpp"                        !compile_link! "%out%!_build!\cpp_tests.exe" || goto:$MainError
+    if "%look_at_raddbg%"=="1"     !compile!             "!_root!\src\scratch\look_at_raddbg.c"                              !compile_link! "%out%!_build!\look_at_raddbg.exe" || goto:$MainError
+    if "%mule_main%"=="1"          del vc*.pdb mule*.pdb && %compile_release% %only_compile% "!_root!\src\mule\mule_inline.cpp" && %compile_release% %only_compile% "!_root!\src\mule\mule_o2.cpp" && %compile_debug% %EHsc% "!_root!\src\mule\mule_main.cpp" "!_root!\src\mule\mule_c.c" mule_inline.obj mule_o2.obj !compile_link! "%out%!_build!\mule_main.exe" || goto:$MainError
+    if "%mule_module%"=="1"        !compile!             "!_root!\src\mule\mule_module.cpp"                                  !compile_link! %link_dll% "%out%mule_module.dll" || goto:$MainError
+    if "%mule_hotload%"=="1"       !compile! ""!_root!\src\mule\mule_hotload_main.c" !compile_link! "%out%mule_hotload.exe" & !compile! "!_root!\src\mule\mule_hotload_module_main.c" !compile_link! %link_dll% %out%mule_hotload_module.dll || goto:$MainError
 
     :: --- Unset ------------------------------------------------------------------
     for %%a in (%*) do set "%%a=0"
