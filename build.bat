@@ -246,17 +246,6 @@ setlocal EnableDelayedExpansion
     if "!debug!"=="1"     set "compile=!compile_debug!"
     if "!release!"=="1"   set "compile=!compile_release!"
 
-    if not "!clang!"=="1" goto:$MainSkipClangOverrides
-        if "!mule_module!"=="1" (
-            set "mule_module=0"
-            echo [WARNING] Skipped unsupported "mule_module" in Clang build.
-        )
-        if "!mule_module!"=="1" (
-            set "mule_hotload=0"
-            echo [WARNING] Skipped unsupported "mule_hotload" in Clang build.
-        )
-    :$MainSkipClangOverrides
-
     :: --- Prep Directories -------------------------------------------------------
     if not exist "!_build!" mkdir "!_build!"
     if not exist "!_root!\local" mkdir "!_root!\local"
@@ -327,13 +316,19 @@ setlocal EnableDelayedExpansion
     :$MainError
         if "!look_at_raddbg!"=="1" goto:$MainErrorIgnore
         if "!ryan_scratch!"=="1" goto:$MainErrorIgnore
+
+        if not "!clang!"=="1" goto:$MainSkipClangOverrides
+            if "!mule_module!"=="1" goto:$MainErrorIgnore
+            if "!mule_hotload!"=="1" goto:$MainErrorIgnore
+        :$MainSkipClangOverrides
+
         set _error=%errorlevel%
         echo ##[error][!_error!] Failed to build project.
         goto:$MainDone
 
     :$MainErrorIgnore
         set "_error=0"
-        echo ##[error] Ignored known build error for current project.
+        echo ##[warning] Ignored known build error for current project.
         goto:$MainDone
 
     :$MainDone
