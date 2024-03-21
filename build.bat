@@ -21,11 +21,18 @@
 ::
 :: - `asan`: enable address sanitizer
 :: - `telemetry`: enable RAD telemetry profiling support
+::
+:: cspell:ignore raddbg,asan,raddbgi,setlocal,endlocal,msvc,windsdk,errorlevel
+:: cspell:ignore winsdk,winlibs,ucrt,hostx,bitness,vscmd,preinit,ehsc
+:: cspell:ignore vcvarsall,libpath,nologo,bitfield,xclang,fdiagnostics
+:: cspell:ignore dstrdup,dprofile,fsanitize,gcodeview,strdup,flto,dndebug
+:: cspell:ignore userprofile,natvis,metagen,breakpad,hotload,dgnu,xlinker
+:: cspell:ignore draddbg,endgroup,metaprogram
 
-:Command
 ::-------------------------------------------------
 :: Run a command and echo that command to console
 ::-------------------------------------------------
+:Command
 setlocal EnableExtensions
     set "_command=%*"
     goto:$CommandRun
@@ -45,11 +52,11 @@ setlocal EnableExtensions
     call :CommandVar "_command"
 endlocal & exit /b %errorlevel%
 
-:Find
 ::-------------------------------------------------
 :: Look for requested executable and set the provided variable to the full path
 :: of that executable if found.
 ::-------------------------------------------------
+:Find
 setlocal EnableDelayedExpansion
     set "_var=%~1"
     set "_exe=%~2"
@@ -94,36 +101,13 @@ endlocal & (
 )
 exit /b %errorlevel%
 
+::-------------------------------------------------
+:: Clear known variables
+::-------------------------------------------------
 :Clear
-    set "__DOTNET_ADD_64BIT="
-    set "__DOTNET_PREFERRED_BITNESS="
-    set "__VSCMD_PREINIT_PATH="
-    set "_build="
-    set "_exe="
-    set "_inc="
-    set "_root="
-    set "_var="
-    set "cl_common="
-    set "cl_link="
-    set "cl_obj="
-    set "cl="
-    set "clang_out="
-    set "clang="
-    set "clink_dummy_capture_env="
-    set "compile_link="
-    set "compile="
-    set "debug="
-    set "Ehsc="
-    set "gfx="
-    set "INCLUDE="
-    set "LIB="
-    set "LINES="
-    set "link_dll="
-    set "msvc="
-    set "net="
-    set "out="
-    set "raddbg="
-    set "release="
+    for %%a in ("__DOTNET_ADD_64BIT" "__DOTNET_PREFERRED_BITNESS" "__VSCMD_PREINIT_PATH" "_build" "_exe" "_inc" "_root" "_var" "cl_common" "cl_link" "cl_obj" "cl" "clang_out" "clang" "clink_dummy_capture_env" "compile_link" "compile" "debug" "Ehsc" "gfx" "INCLUDE" "LIB" "LINES" "link_dll" "msvc" "net" "out" "raddbg" "release") do (
+        set "%%a="
+    )
 exit /b 0
 
 ::
@@ -361,52 +345,26 @@ setlocal EnableDelayedExpansion
 endlocal & exit /b %_error%
 
 :$Main
-setlocal EnableDelayedExpansion
     echo ##[group]%0 %~1 %~2 %~3 %~4 %~5 %~6 %~7 %~8 %~9
     echo ##[command]%0 %~1 %~2 %~3 %~4 %~5 %~6 %~7 %~8 %~9
 
-    set "_error=0"
-    if "%~1"=="all" goto:$MainBuildAll
-
     :$MainBuild
+        if "%~1"=="all" goto:$MainBuildAll
         call :Build %*
         if errorlevel 1 goto:$MainError
         goto:$MainDone
 
     :$MainBuildAll
-        call :Build raddbg                            %*
-        if errorlevel 1 goto:$MainError
-        call :Build raddbgi_from_pdb                  %*
-        if errorlevel 1 goto:$MainError
-        call :Build raddbgi_from_dwarf                %*
-        if errorlevel 1 goto:$MainError
-        call :Build raddbgi_dump                      %*
-        if errorlevel 1 goto:$MainError
-        call :Build raddbgi_breakpad_from_pdb         %*
-        if errorlevel 1 goto:$MainError
-        call :Build ryan_scratch                      %*
-        if errorlevel 1 goto:$MainError
-        call :Build cpp_tests                         %*
-        if errorlevel 1 goto:$MainError
-        call :Build look_at_raddbg                    %*
-        if errorlevel 1 goto:$MainError
-        call :Build mule_main                         %*
-        if errorlevel 1 goto:$MainError
-        call :Build mule_module                       %*
-        if errorlevel 1 goto:$MainError
-        call :Build mule_hotload                      %*
-        if errorlevel 1 goto:$MainError
-
+        for %%a in ("raddbg" "raddbgi_from_pdb" "raddbgi_from_dwarf" "raddbgi_dump" "raddbgi_breakpad_from_pdb" "ryan_scratch" "cpp_tests" "look_at_raddbg" "mule_main" "mule_module" "mule_hotload") do (
+            call :Build "%%a" %*
+            if errorlevel 1 goto:$MainError
+        )
         echo ##[info]Built all projects successfully.
         goto:$MainDone
 
     :$MainError
-        set _error=%errorlevel%
-        echo ##[error]Failed to build projects. Error code: !_error!
+        echo ##[error]Failed to build projects. Error code: %errorlevel%
         goto:$MainDone
 
     :$MainDone
-    call :Clear
-endlocal & (
-    exit /b %_error%
-)
+goto:eof
