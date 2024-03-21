@@ -94,15 +94,38 @@ endlocal & (
 )
 exit /b %errorlevel%
 
-:Build
-setlocal EnableDelayedExpansion
-    set "_var=%~1"
-    shift
-    set "_var_val=!%_var%!"
-    if not "!_var_val!"=="1" goto:$BuildDone
-    call :Command %1 %2 %3 %4 %5 %6 %7 %8 %9
-    :$BuildDone
-endlocal & exit /b %errorlevel%
+:Clear
+    set "__DOTNET_ADD_64BIT="
+    set "__DOTNET_PREFERRED_BITNESS="
+    set "__VSCMD_PREINIT_PATH="
+    set "_build="
+    set "_error="
+    set "_exe="
+    set "_inc="
+    set "_root="
+    set "_var="
+    set "cl_common="
+    set "cl_link="
+    set "cl_obj="
+    set "cl="
+    set "clang_out="
+    set "clang="
+    set "clink_dummy_capture_env="
+    set "compile_link="
+    set "compile="
+    set "debug="
+    set "Ehsc="
+    set "gfx="
+    set "INCLUDE="
+    set "LIB="
+    set "LINES="
+    set "link_dll="
+    set "msvc="
+    set "net="
+    set "out="
+    set "raddbg="
+    set "release="
+exit /b 0
 
 ::
 ::-------------------------------
@@ -112,6 +135,7 @@ endlocal & exit /b %errorlevel%
 setlocal EnableDelayedExpansion
     echo ##[group]%0 %~1 %~2 %~3 %~4 %~5 %~6 %~7 %~8 %~9
     echo ##[command]%0 %~1 %~2 %~3 %~4 %~5 %~6 %~7 %~8 %~9
+    call :Clear
 
     set "_error=0"
     set "_variables=%*"
@@ -154,17 +178,20 @@ setlocal EnableDelayedExpansion
     setlocal EnableDelayedExpansion
         set "_var=%~1"
         set "_path_search=%~2"
+        if not exist "!_path_search!" goto:$GetPathDone
+
         set "%_var%="
         set "_var_dir=%_var%_dir"
         set "%_var_dir%=%_path_search%"
-        FOR /F "tokens=*" %%A IN ('dir /b /o-d /a:d "%_path_search%\*"') do (
+        for /F "tokens=*" %%A IN ('dir /b /o-d /a:d "%_path_search%\*"') do (
             set "%_var%=%_path_search%\%%A"
             goto:$GetPathDone
         )
+
         :$GetPathDone
-        set "_out_var=!%_var%!"
-        set "_out_var_dir=!%_var_dir%!"
-        echo [%_var%] "!_out_var!"
+            set "_out_var=!%_var%!"
+            set "_out_var_dir=!%_var_dir%!"
+            echo [%_var%] "!_out_var!"
     endlocal & (
         set "%_var%=%_out_var%"
         exit /b 0
@@ -335,10 +362,5 @@ setlocal EnableDelayedExpansion
         echo ##[endgroup]
         :: --- Unset ------------------------------------------------------------------
         for %%a in (!_variables!) do set "%%a=0"
-        set "raddbg="
-        set "compile="
-        set "compile_link="
-        set "out="
-        set "msvc="
-        set "debug="
+        call :Clear
 endlocal & exit /b %_error%
