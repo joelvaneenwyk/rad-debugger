@@ -77,12 +77,10 @@ setlocal EnableDelayedExpansion
 
     :$StartFind
     call :$InnerFind "!_var!" "!_exe!" ^
-      "C:\Program Files (x86)\Windows Kits\10\bin\10.0.19041.0\x64" ^
-      "C:\Microsoft\AndroidNDK\android-ndk-r23c\toolchains\llvm\prebuilt\windows-x86_64\bin" ^
-      "%USERPROFILE%\scoop\apps\mingw-winlibs-llvm\13.2.0-17.0.4-11.0.1-r2\bin" ^
-      "%USERPROFILE%\scoop\apps\mingw-winlibs-llvm-ucrt\13.2.0-16.0.6-11.0.0-r1\bin" ^
-      "%USERPROFILE%\scoop\apps\mingw-winlibs-llvm-ucrt-mcf\13.2.0-16.0.6-11.0.1-r2\bin" ^
-      "C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Tools\MSVC\14.39.33519\bin\Hostx64\x64"
+      "%msvc_path%\bin\Hostx64\x64" ^
+      "%msvc_root%\VC\Tools\Llvm\x64\bin" ^
+      "%winsdk_bin_path%\x64" ^
+      "%mingw_winlibs_llvm%\bin" "%mingw_winlibs_llvm_ucrt%\bin" "%mingw_winlibs_llvm_ucrt_mcf%\bin"
 
     set "_result=!%_var%!"
     if not exist "!_result!" (
@@ -114,50 +112,75 @@ endlocal & exit /b %errorlevel%
 setlocal EnableDelayedExpansion
     set "_error=0"
     set "_root=%~dp0"
-    if "!_root:~-1!"=="\" set "_root=!_root:~0,-1!"
-    set "_build=!_root!\build"
+    if "!_root:~-1!"=="\"                               set "_root=!_root:~0,-1!"
 
     :: --- Unpack Arguments -------------------------------------------------------
-    for %%a in (%*) do set "%%a=1"
-    if not "%msvc%"=="1" if not "%clang%"=="1" set "msvc=1"
-    if not "%release%"=="1" set "debug=1"
-    if "%debug%"=="1"   set "release=0" && echo [debug mode]
-    if "%release%"=="1" set "debug=0" && echo [release mode]
-    if "%msvc%"=="1"    set "clang=0" && echo [msvc compile]
-    if "%clang%"=="1"   set "msvc=0" && echo [clang compile]
-    if "%~1"==""        echo [default mode, assuming `raddbg` build] && set raddbg=1
+    for %%a in (%*) do                                  set "%%a=1"
+    if not "%msvc%"=="1" if not "%clang%"=="1"          set "msvc=1"
+    if not "%release%"=="1"                             set "debug=1"
+    if "%debug%"=="1"                                   set "release=0" && echo [debug mode]
+    if "%release%"=="1"                                 set "debug=0" && echo [release mode]
+    if "%msvc%"=="1"                                    set "clang=0" && echo [msvc compile]
+    if "%clang%"=="1"                                   set "msvc=0" && echo [clang compile]
+    if "%~1"==""                                        echo [default mode, assuming `raddbg` build] && set raddbg=1
 
-    call :Find cl_exe           "cl.exe"
-    call :Find clang_cl_exe     "clang.exe"
+    if "!release!"=="1"                                 set "_config=release"
+    if "!debug!"=="1"                                   set "_config=debug"
+    if "!_config!"==""                                  set "_config=debug"
+
+    if "!msvc!"=="1"                                    set "_compiler=msvc"
+    if "!clang!"=="1"                                   set "_compiler=clang"
+    if "!_compiler!"==""                                set "_compiler=msvc"
+
+    set "_build=!_root!\build\!_config!"
+    if not exist "!_root!\build"                        mkdir "!_root!\build"
+    if not exist "!_build!"                             mkdir "!_build!"
 
     :: --- Unpack Command Line Build Arguments ------------------------------------
     set "auto_compile_flags="
     if "%telemetry%"=="1" set "auto_compile_flags=!auto_compile_flags! -DPROFILE_TELEMETRY=1" && echo [telemetry profiling enabled]
     if "%asan%"=="1"      set "auto_compile_flags=!auto_compile_flags! -fsanitize=address" && echo [asan enabled]
 
-    set "_msvc_path=C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Tools\MSVC"
-    if not exist "!_msvc_path!" set "_msvc_path=C:\Program Files\Microsoft Visual Studio\2022\Professional\VC\Tools\MSVC"
-    if not exist "!_msvc_path!" set "_msvc_path=C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Tools\MSVC"
+    set "msvc_root=C:\Program Files\Microsoft Visual Studio\2022\Enterprise"
+    if not exist "!msvc_root!" set "msvc_root=C:\Program Files\Microsoft Visual Studio\2022\Professional"
+    if not exist "!msvc_root!" set "msvc_root=C:\Program Files\Microsoft Visual Studio\2022\Community"
 
     set "msvc_path="
-    for /D %%x in ("!_msvc_path!\*") do if not defined msvc_path set "msvc_path=%%x"
+    for /D %%x in ("!msvc_root!\VC\Tools\MSVC\*") do if not defined msvc_path set "msvc_path=%%x"
     echo [msvc_path] !msvc_path!
 
-    set "_vcvarsall=C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat"
-    if not exist "!_vcvarsall!" set "_vcvarsall=C:\Program Files\Microsoft Visual Studio\2022\Professional\VC\Auxiliary\Build\vcvarsall.bat"
-    if not exist "!_vcvarsall!" set "_vcvarsall=C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Auxiliary\Build\vcvarsall.bat"
+    set "_vcvarsall=!msvc_root!\VC\Auxiliary\Build\vcvarsall.bat"
     ::if exist "!_vcvarsall!" call "!_vcvarsall!" x64
+
+    set "winsdk_bin_path="
+    for /D %%y in ("C:\Program Files (x86)\Windows Kits\10\Bin\*") do if not defined winsdk_bin_path set "winsdk_bin_path=%%y"
+    echo [winsdk_bin_path] !winsdk_bin_path!
 
     set "winsdk_include_path="
     for /D %%y in ("C:\Program Files (x86)\Windows Kits\10\Include\*") do if not defined winsdk_include_path set "winsdk_include_path=%%y"
     echo [winsdk_include_path] !winsdk_include_path!
 
     set "winsdk_lib_path="
-    for /D %%y in ("C:\Program Files (x86)\Windows Kits\10\Lib\*") do if not defined winsdk_lib_path set "winsdk_lib_path=%%y"
+    for /D %%z in ("C:\Program Files (x86)\Windows Kits\10\Lib\*") do if not defined winsdk_lib_path set "winsdk_lib_path=%%z"
     echo [winsdk_lib_path] !winsdk_lib_path!
+
+    set "mingw_winlibs_llvm="
+    for /D %%z in ("%USERPROFILE%\scoop\apps\mingw-winlibs-llvm\*") do if not defined mingw_winlibs_llvm set "mingw_winlibs_llvm=%%z"
+    echo [mingw_winlibs_llvm] !mingw_winlibs_llvm!
+
+    set "mingw_winlibs_llvm_ucrt="
+    for /D %%z in ("%USERPROFILE%\scoop\apps\mingw-winlibs-llvm-ucrt\*") do if not defined mingw_winlibs_llvm_ucrt set "mingw_winlibs_llvm_ucrt=%%z"
+    echo [mingw_winlibs_llvm_ucrt] !mingw_winlibs_llvm_ucrt!
+
+    set "mingw_winlibs_llvm_ucrt_mcf="
+    for /D %%z in ("%USERPROFILE%\scoop\apps\mingw-winlibs-llvm-ucrt-mcf\*") do if not defined mingw_winlibs_llvm_ucrt_mcf set "mingw_winlibs_llvm_ucrt_mcf=%%z"
+    echo [mingw_winlibs_llvm] !mingw_winlibs_llvm!
 
     set "_inc=/I"!msvc_path!\include" /I"!winsdk_include_path!\ucrt" /I"!winsdk_include_path!\um" /I"!winsdk_include_path!\shared" "
     set "_lib=/LIBPATH:"!msvc_path!\lib\x64" /LIBPATH:"!winsdk_lib_path!\um\x64" /LIBPATH:"!winsdk_lib_path!\ucrt\x64" /LIBPATH:"!winsdk_lib_path!\shared" "
+
+    call :Find                          cl_exe          "cl.exe"
+    call :Find                          clang_cl_exe    "clang.exe"
 
     :: --- Compile/Link Line Definitions ------------------------------------------
     set      cl_common=/I"!_root!\src" /I"!_root!\local" !_inc! /nologo /FC /Z7
@@ -231,31 +254,41 @@ setlocal EnableDelayedExpansion
 
     :: --- Build Everything (@build_targets) --------------------------------------
     :$StartBuild
-    if "%raddbg%"=="1"                  call !compile! %gfx%       "!_root!\src\raddbg\raddbg_main.cpp"                                !compile_link! !out!"!_build!\raddbg.exe"
+    if "%raddbg%"=="1"                  call !compile! %gfx%                    "!_root!\src\raddbg\raddbg_main.cpp"                                !compile_link! !out!"!_build!\raddbg.exe"
     if errorlevel 1 goto:$MainError
-    if "%raddbgi_from_pdb%"=="1"         call !compile!             "!_root!\src\raddbgi_from_pdb\raddbgi_from_pdb_main.c"             !compile_link! !out!"!_build!\raddbgi_from_pdb.exe"
+
+    if "%raddbgi_from_pdb%"=="1"        call !compile!                          "!_root!\src\raddbgi_from_pdb\raddbgi_from_pdb_main.c"             !compile_link! !out!"!_build!\raddbgi_from_pdb.exe"
     if errorlevel 1 goto:$MainError
-    if "%raddbgi_from_dwarf%"=="1"       call !compile!             "!_root!\src\raddbgi_from_dwarf\raddbgi_from_dwarf.c"              !compile_link! !out!"!_build!\raddbgi_from_dwarf.exe"
+
+    if "%raddbgi_from_dwarf%"=="1"      call !compile!                          "!_root!\src\raddbgi_from_dwarf\raddbgi_from_dwarf.c"              !compile_link! !out!"!_build!\raddbgi_from_dwarf.exe"
     if errorlevel 1 goto:$MainError
-    if "%raddbgi_dump%"=="1"             call !compile!             "!_root!\src\raddbgi_dump\raddbgi_dump_main.c"                             !compile_link! !out!"!_build!\raddbgi_dump.exe"
+
+    if "%raddbgi_dump%"=="1"            call !compile!                          "!_root!\src\raddbgi_dump\raddbgi_dump_main.c"                             !compile_link! !out!"!_build!\raddbgi_dump.exe"
     if errorlevel 1 goto:$MainError
-  if "%raddbgi_breakpad_from_pdb%"=="1"             call !compile!             "!_root!\src\raddbgi_breakpad_from_pdb\raddbgi_breakpad_from_pdb_main.c"                             !compile_link! !out!"!_build!\raddbgi_breakpad_from_pdb.exe"
+
+    if "%raddbgi_breakpad_from_pdb%"=="1" call !compile!                          "!_root!\src\raddbgi_breakpad_from_pdb\raddbgi_breakpad_from_pdb_main.c"                             !compile_link! !out!"!_build!\raddbgi_breakpad_from_pdb.exe"
     if errorlevel 1 goto:$MainError
-    if "%ryan_scratch%"=="1"            call !compile!             "!_root!\src\scratch\ryan_scratch.c"                                !compile_link! !out!"!_build!\ryan_scratch.exe"
+
+    if "%ryan_scratch%"=="1"            call !compile!                          "!_root!\src\scratch\ryan_scratch.c"                                !compile_link! !out!"!_build!\ryan_scratch.exe"
     if errorlevel 1 goto:$MainError
-    if "%cpp_tests%"=="1"               call !compile!             "!_root!\src\scratch\i_hate_c_plus_plus.cpp"                        !compile_link! !out!"!_build!\cpp_tests.exe"
+
+    if "%cpp_tests%"=="1"               call !compile!                          "!_root!\src\scratch\i_hate_c_plus_plus.cpp"                        !compile_link! !out!"!_build!\cpp_tests.exe"
     if errorlevel 1 goto:$MainError
-    if "%look_at_raddbg%"=="1"          call !compile!             "!_root!\src\scratch\look_at_raddbg.c"                              !compile_link! !out!"!_build!\look_at_raddbg.exe"
+
+    if "%look_at_raddbg%"=="1"          call !compile!                          "!_root!\src\scratch\look_at_raddbg.c"                              !compile_link! !out!"!_build!\look_at_raddbg.exe"
     if errorlevel 1 goto:$MainError
-    if "%mule_main%"=="1"               call del "!_build!\vc*.pdb" "!_build!\mule*.pdb"
-    if "%mule_main%"=="1"               call !compile_release!   %only_compile%  "!_root!\src\mule\mule_inline.cpp"
-    if "%mule_main%"=="1"               call !compile_release!   %only_compile%  "!_root!\src\mule\mule_o2.cpp"
-    if "%mule_main%"=="1"               call !compile_debug!     %EHsc%          "!_root!\src\mule\mule_main.cpp" "!_root!\src\mule\mule_c.c" "!_build!\mule_inline.obj" "!_build!\mule_o2.obj" !compile_link!    !out!"!_build!\mule_main.exe"
+
+    if "%mule_main%"=="1"               call del                                "!_build!\vc*.pdb" "!_build!\mule*.pdb"
+    if "%mule_main%"=="1"               call !compile_release! %only_compile%   "!_root!\src\mule\mule_inline.cpp"
+    if "%mule_main%"=="1"               call !compile_release! %only_compile%   "!_root!\src\mule\mule_o2.cpp"
+    if "%mule_main%"=="1"               call !compile_debug!   %EHsc%           "!_root!\src\mule\mule_main.cpp" "!_root!\src\mule\mule_c.c" "!_build!\mule_inline.obj" "!_build!\mule_o2.obj" !compile_link!    !out!"!_build!\mule_main.exe"
     if errorlevel 1 goto:$MainError
-    if "%mule_module%"=="1"             call !compile!             "!_root!\src\mule\mule_module.cpp"                                  !compile_link! %link_dll% "!out!mule_module.dll"
+
+    if "%mule_module%"=="1"             call !compile!                          "!_root!\src\mule\mule_module.cpp"                                  !compile_link! %link_dll% "!out!mule_module.dll"
     if errorlevel 1 goto:$MainError
-    if "%mule_hotload%"=="1"            call !compile!             "!_root!\src\mule\mule_hotload_main.c" !compile_link! "!out!mule_hotload.exe"
-    if "%mule_hotload%"=="1"            call !compile! "!_root!\src\mule\mule_hotload_module_main.c" !compile_link! %link_dll% !out!"!_build!\mule_hotload_module.dll"
+
+    if "%mule_hotload%"=="1"            call !compile!                          "!_root!\src\mule\mule_hotload_main.c" !compile_link! "!out!mule_hotload.exe"
+    if "%mule_hotload%"=="1"            call !compile!                          "!_root!\src\mule\mule_hotload_module_main.c" !compile_link! %link_dll% !out!"!_build!\mule_hotload_module.dll"
     if errorlevel 1 goto:$MainError
 
     :: --- Unset ------------------------------------------------------------------
