@@ -110,12 +110,17 @@ endlocal & exit /b %errorlevel%
 ::-------------------------------
 :$Main
 setlocal EnableDelayedExpansion
+    echo ##[cmd] %0 %~1 %~2 %~3 %~4 %~5 %~6 %~7 %~8 %~9
+
     set "_error=0"
+    set "_variables=%*"
     set "_root=%~dp0"
     if "!_root:~-1!"=="\"                               set "_root=!_root:~0,-1!"
 
     :: --- Unpack Arguments -------------------------------------------------------
-    for %%a in (%*) do                                  set "%%a=1"
+    set "_variables=%*"
+    set "_variables=%*"
+    for %%a in (!_variables!) do                        set "%%a=1"
     if not "%msvc%"=="1" if not "%clang%"=="1"          set "msvc=1"
     if not "%release%"=="1"                             set "debug=1"
     if "%debug%"=="1"                                   set "release=0" && echo [debug mode]
@@ -132,14 +137,15 @@ setlocal EnableDelayedExpansion
     if "!clang!"=="1"                                   set "_compiler=clang"
     if "!_compiler!"==""                                set "_compiler=msvc"
 
-    set "_build=!_root!\build\!_config!"
     if not exist "!_root!\build"                        mkdir "!_root!\build"
-    if not exist "!_build!"                             mkdir "!_build!"
+    if not exist "!_root!\build\!_compiler!"            mkdir "!_root!\build\!_compiler!"
+    if not exist "!_root!\build\!_compiler!\!_config!"  mkdir "!_root!\build\!_compiler!\!_config!"
+    set                                                 "_build=!_root!\build\!_compiler!\!_config!"
 
     :: --- Unpack Command Line Build Arguments ------------------------------------
     set "auto_compile_flags="
-    if "%telemetry%"=="1" set "auto_compile_flags=!auto_compile_flags! -DPROFILE_TELEMETRY=1" && echo [telemetry profiling enabled]
-    if "%asan%"=="1"      set "auto_compile_flags=!auto_compile_flags! -fsanitize=address" && echo [asan enabled]
+    if "%telemetry%"=="1"      set "auto_compile_flags=!auto_compile_flags! -DPROFILE_TELEMETRY=1" && echo [telemetry profiling enabled]
+    if "%asan%"=="1"           set "auto_compile_flags=!auto_compile_flags! -fsanitize=address" && echo [asan enabled]
 
     goto:$MainSetPaths
 
@@ -164,25 +170,22 @@ setlocal EnableDelayedExpansion
     )
 
     :$MainSetPaths
-    set "msvc_root=C:\Program Files\Microsoft Visual Studio\2022\Enterprise"
-    if not exist "!msvc_root!" set "msvc_root=C:\Program Files\Microsoft Visual Studio\2022\Professional"
-    if not exist "!msvc_root!" set "msvc_root=C:\Program Files\Microsoft Visual Studio\2022\Community"
-
-    call :GetPath "msvc_path" "!msvc_root!\VC\Tools\MSVC"
-
-    ::
-    :: If needed, you can run `call "!_vcvarsall!" x64` to further setup the development environment. This
-    :: will be much slower, though, so not enabled by default.
-    ::
-    set "_vcvarsall=!msvc_root!\VC\Auxiliary\Build\vcvarsall.bat"
-
-    call :GetPath "winsdk_bin_path" "C:\Program Files (x86)\Windows Kits\10\Bin"
+    call :GetPath "msvc_root"                      "C:\Program Files\Microsoft Visual Studio\2022"
     call :GetPath "winsdk_include_path"            "C:\Program Files (x86)\Windows Kits\10\Include"
     call :GetPath "winsdk_lib_path"                "C:\Program Files (x86)\Windows Kits\10\Lib"
     call :GetPath "mingw_winlibs_llvm"             "%USERPROFILE%\scoop\apps\mingw-winlibs-llvm"
     call :GetPath "mingw_winlibs_llvm_ucrt"        "%USERPROFILE%\scoop\apps\mingw-winlibs-llvm-ucrt"
     call :GetPath "mingw_winlibs_llvm_ucrt_mcf"    "%USERPROFILE%\scoop\apps\mingw-winlibs-llvm-ucrt-mcf"
-    if exist "!winsdk_bin_path!\x64" set "path=!winsdk_bin_path!\x64;%path%"
+
+    call :GetPath "winsdk_bin_path"                "C:\Program Files (x86)\Windows Kits\10\Bin"
+    if exist "!winsdk_bin_path!\x64"                set "path=!winsdk_bin_path!\x64;%path%"
+
+    ::
+    :: If needed, you can run `call "!_vcvarsall!" x64` to further setup the development environment. This
+    :: will be much slower, though, so not enabled by default.
+    ::
+    call :GetPath "msvc_path" "!msvc_root!\VC\Tools\MSVC"
+    set "_vcvarsall=!msvc_root!\VC\Auxiliary\Build\vcvarsall.bat"
 
     set "_inc=/I"!msvc_path!\include" /I"!winsdk_include_path!\ucrt" /I"!winsdk_include_path!\um" /I"!winsdk_include_path!\shared" "
     set "_lib=/LIBPATH:"!msvc_path!\lib\x64" /LIBPATH:"!winsdk_lib_path!\um\x64" /LIBPATH:"!winsdk_lib_path!\ucrt\x64" /LIBPATH:"!winsdk_lib_path!\shared" "
@@ -242,6 +245,13 @@ setlocal EnableDelayedExpansion
     if "!debug!"=="1"     set "compile=!compile_debug!"
     if "!release!"=="1"   set "compile=!compile_release!"
 
+    if "!clang!"=="1" (
+        set "mule_module=0"
+        echo [WARNING] Skipped unsupported "mule_module" in Clang build.
+        set "mule_hotload=0"
+        echo [WARNING] Skipped unsupported "mule_hotload" in Clang build.
+      )
+
     :: --- Prep Directories -------------------------------------------------------
     if not exist "!_build!" mkdir "!_build!"
     if not exist "!_root!\local" mkdir "!_root!\local"
@@ -293,27 +303,19 @@ setlocal EnableDelayedExpansion
     if "!look_at_raddbg!"=="1"              call !compile!                          "!_root!\src\scratch\look_at_raddbg.c"                              !compile_link! !out!"!_build!\look_at_raddbg.exe"
     if errorlevel 1 goto:$MainError
 
-    if "!mule_main!"=="1"                   call del                                "!_build!\vc*.pdb" "!_build!\mule*.pdb"
-    if "!mule_main!"=="1"                   call !compile_release! !only_compile!   "!_root!\src\mule\mule_inline.cpp"
-    if "!mule_main!"=="1"                   call !compile_release! !only_compile!   "!_root!\src\mule\mule_o2.cpp"
-    if "!mule_main!"=="1"                   call !compile_debug!   !EHsc!           "!_root!\src\mule\mule_main.cpp" "!_root!\src\mule\mule_c.c" "!_build!\mule_inline.obj" "!_build!\mule_o2.obj" !compile_link!    !out!"!_build!\mule_main.exe"
+    if "!mule_main!"=="1"                   call del                                "!_build!\vc*.pdb" "!_build!\mule*.pdb" > nul 2>&1
+    if "!mule_main!"=="1"                   call :Command call !compile_release! !only_compile!   "!_root!\src\mule\mule_inline.cpp" !out!"!_build!\mule_inline.obj"
+    if "!mule_main!"=="1"                   call :Command call !compile_release! !only_compile!   "!_root!\src\mule\mule_o2.cpp" !out!"!_build!\mule_o2.obj"
+    if "!mule_main!"=="1"                   call :Command call !compile_debug!   !EHsc!           "!_root!\src\mule\mule_main.cpp" "!_root!\src\mule\mule_c.c" "!_build!\mule_inline.obj" "!_build!\mule_o2.obj" !compile_link!    !out!"!_build!\mule_main.exe"
     if errorlevel 1 goto:$MainError
 
-    if "!mule_module!"=="1"                 call !compile!                          "!_root!\src\mule\mule_module.cpp"                                  !compile_link! !link_dll! "!out!mule_module.dll"
+    if "!mule_module!"=="1"                 call :Command !compile!                          "!_root!\src\mule\mule_module.cpp"                                  !compile_link! !link_dll! !out!"!_build!\mule_module.dll"
     if errorlevel 1 goto:$MainError
 
-    if "!mule_hotload!"=="1"                call !compile!                          "!_root!\src\mule\mule_hotload_main.c" !compile_link! "!out!mule_hotload.exe"
-    if "!mule_hotload!"=="1"                call !compile!                          "!_root!\src\mule\mule_hotload_module_main.c" !compile_link! !link_dll! !out!"!_build!\mule_hotload_module.dll"
+    if "!mule_hotload!"=="1"                call :Command !compile!                          "!_root!\src\mule\mule_hotload_main.c" !compile_link! !out!"!_build!\mule_hotload.exe"
+    if "!mule_hotload!"=="1"                call :Command !compile!                          "!_root!\src\mule\mule_hotload_module_main.c" !compile_link! !link_dll! !out!"!_build!\mule_hotload_module.dll"
     if errorlevel 1 goto:$MainError
 
-    :: --- Unset ------------------------------------------------------------------
-    for %%a in (%*) do set "%%a=0"
-    set raddbg=
-    set compile=
-    set compile_link=
-    set out=
-    set msvc=
-    set debug=
     echo RAD Debugger build complete.
     goto:$MainDone
 
@@ -323,4 +325,12 @@ setlocal EnableDelayedExpansion
     goto:$MainDone
 
     :$MainDone
+    :: --- Unset ------------------------------------------------------------------
+    for %%a in (!_variables!) do set "%%a=0"
+    set "raddbg="
+    set "compile="
+    set "compile_link="
+    set "out="
+    set "msvc="
+    set "debug="
 endlocal & exit /b %_error%
