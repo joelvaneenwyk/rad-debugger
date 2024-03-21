@@ -1,7 +1,4 @@
 @echo off && goto:$Main
-
-
-
 :: --- Usage Notes (2024/1/10) ------------------------------------------------
 ::
 :: This is a central build script for the RAD Debugger project. It takes a list
@@ -58,26 +55,27 @@ setlocal EnableDelayedExpansion
     set "_exe=%~2"
     if ["!_exe!"]==[""] set "_exe=%_var%"
 
-    goto:$InnerFindEnd
+    goto:$StartFind
     :$InnerFind
-      setlocal EnableDelayedExpansion
-          set "_variable=%~1"
-          set "_executable=%~2"
-          shift
-          shift
-          :$InnerFindLoop
-            if "%~1"=="" goto:$InnerFindDone
-            set "_out=%~1\!_executable!.exe"
+    setlocal EnableDelayedExpansion
+        set "_variable=%~1"
+        set "_executable=%~2"
+        shift
+        shift
+        :$InnerFindLoop
+            set "_vv=%~1"
+            if "!_vv!"=="" goto:$InnerFindDone
+            set "_out=!_vv!\%_executable%"
             shift
             if not exist "!_out!" goto:$InnerFindLoop
-          :$InnerFindDone
-      :$InnerFindDone
-      endlocal & (
-        set "%_variable%=%_out%"
-        exit /b 0
-      )
-    :$InnerFindEnd
 
+        :$InnerFindDone
+    endlocal & (
+      set "%_variable%=%_out%"
+      exit /b 0
+    )
+
+    :$StartFind
     call :$InnerFind "!_var!" "!_exe!" ^
       "C:\Program Files (x86)\Windows Kits\10\bin\10.0.19041.0\x64" ^
       "C:\Microsoft\AndroidNDK\android-ndk-r23c\toolchains\llvm\prebuilt\windows-x86_64\bin" ^
@@ -121,39 +119,39 @@ setlocal EnableDelayedExpansion
 
     :: --- Unpack Arguments -------------------------------------------------------
     for %%a in (%*) do set "%%a=1"
-    if not "%msvc%"=="1" if not "%clang%"=="1" set msvc=1
-    if not "%release%"=="1" set debug=1
-    if "%debug%"=="1"   set release=0 && echo [debug mode]
-    if "%release%"=="1" set debug=0 && echo [release mode]
-    if "%msvc%"=="1"    set clang=0 && echo [msvc compile]
-    if "%clang%"=="1"   set msvc=0 && echo [clang compile]
+    if not "%msvc%"=="1" if not "%clang%"=="1" set "msvc=1"
+    if not "%release%"=="1" set "debug=1"
+    if "%debug%"=="1"   set "release=0" && echo [debug mode]
+    if "%release%"=="1" set "debug=0" && echo [release mode]
+    if "%msvc%"=="1"    set "clang=0" && echo [msvc compile]
+    if "%clang%"=="1"   set "msvc=0" && echo [clang compile]
     if "%~1"==""        echo [default mode, assuming `raddbg` build] && set raddbg=1
 
-    call :Find cl
-    call :Find clang
+    call :Find cl_exe           "cl.exe"
+    call :Find clang_cl_exe     "clang.exe"
 
     :: --- Unpack Command Line Build Arguments ------------------------------------
-    set auto_compile_flags=
-    if "%telemetry%"=="1" set auto_compile_flags=%auto_compile_flags% -DPROFILE_TELEMETRY=1 && echo [telemetry profiling enabled]
-    if "%asan%"=="1"      set auto_compile_flags=%auto_compile_flags% -fsanitize=address && echo [asan enabled]
+    set "auto_compile_flags="
+    if "%telemetry%"=="1" set "auto_compile_flags=!auto_compile_flags! -DPROFILE_TELEMETRY=1" && echo [telemetry profiling enabled]
+    if "%asan%"=="1"      set "auto_compile_flags=!auto_compile_flags! -fsanitize=address" && echo [asan enabled]
 
-    set "_inc=""
-    set "_inc=/I"C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Tools\MSVC\14.39.33519\include" "
-    set "_inc=!_inc! /I"C:\Program Files (x86)\Windows Kits\10\Include\10.0.22621.0\ucrt" "
-    set "_inc=!_inc! /I"C:\Program Files (x86)\Windows Kits\10\Include\10.0.22621.0\um" "
-    set "_inc=!_inc! /I"C:\Program Files (x86)\Windows Kits\10\Include\10.0.22621.0\shared" "
+    set "msvc_path=C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Tools\MSVC\14.39.33519"
+    set "winsdk_include_path=C:\Program Files (x86)\Windows Kits\10\Include\10.0.22621.0"
+    set "winsdk_lib_path=C:\Program Files (x86)\Windows Kits\10\Lib\10.0.22621.0"
+    set "_inc=/I"!msvc_path!\include" /I"!winsdk_include_path!\ucrt" /I"!winsdk_include_path!\um" /I"!winsdk_include_path!\shared" "
+    set "_lib=/LIBPATH:"!msvc_path!\lib\x64" /LIBPATH:"!winsdk_lib_path!\um\x64" /LIBPATH:"!winsdk_lib_path!\ucrt\x64" /LIBPATH:"!winsdk_lib_path!\shared" "
 
     :: --- Compile/Link Line Definitions ------------------------------------------
     set      cl_common=/I"!_root!\src" /I"!_root!\local" !_inc! /nologo /FC /Z7
     set   clang_common=-I"!_root!\src" -I"!_root!\local" -gcodeview -fdiagnostics-absolute-paths -Wall -Wno-unknown-warning-option -Wno-missing-braces -Wno-unused-function -Wno-writable-strings -Wno-unused-value -Wno-unused-variable -Wno-unused-local-typedef -Wno-deprecated-register -Wno-deprecated-declarations -Wno-unused-but-set-variable -Wno-single-bit-bitfield-constant-conversion -Xclang -flto-visibility-public-std -D_USE_MATH_DEFINES -Dstrdup=_strdup -Dgnu_printf=printf
 
-    set       cl_debug=!cl! /Od %cl_common% %auto_compile_flags%
-    set     cl_release=!cl! /O2 /DNDEBUG %cl_common% %auto_compile_flags%
+    set       cl_debug=!cl_exe! /Od !cl_common! !auto_compile_flags!
+    set     cl_release=!cl_exe! /O2 /DNDEBUG !cl_common! !auto_compile_flags!
 
-    set    clang_debug=!clang! -g -O0 %clang_common% %auto_compile_flags%
-    set  clang_release=!clang! -g -O2 -DNDEBUG %clang_common% %auto_compile_flags%
+    set    clang_debug=!clang_cl_exe! -g -O0 !clang_common! !auto_compile_flags!
+    set  clang_release=!clang_cl_exe! -g -O2 -DNDEBUG !clang_common! !auto_compile_flags!
 
-    set        cl_link=/link /MANIFEST:EMBED /INCREMENTAL:NO /natvis:"!_root!\src\natvis\base.natvis" "!_build!\logo.res"
+    set        cl_link=/link /MANIFEST:EMBED /INCREMENTAL:NO !_lib! /natvis:"!_root!\src\natvis\base.natvis" "!_build!\logo.res"
     set     clang_link=-fuse-ld=lld -Xlinker /MANIFEST:EMBED -Xlinker /natvis:"!_root!\src\natvis\base.natvis" "!_build!\logo.res"
 
     set         "cl_out=/out:"
@@ -169,8 +167,8 @@ setlocal EnableDelayedExpansion
     if "%clang%"=="1" set "only_compile=-c"
     if "%msvc%"=="1"  set "EHsc=/EHsc"
     if "%clang%"=="1" set "EHsc="
-    if "%msvc%"=="1"  call :Find rc
-    if "%clang%"=="1" call :Find rc "llvm-rc"
+    if "%msvc%"=="1"  call :Find rc_exe "rc.exe"
+    if "%clang%"=="1" call :Find rc_exe "llvm-rc.exe"
 
     :: --- Choose Compile/Link Lines ----------------------------------------------
     if "%msvc%"=="1"      set "compile_debug=!cl_debug!"
@@ -192,7 +190,7 @@ setlocal EnableDelayedExpansion
 
     :: --- Produce Logo Icon File -------------------------------------------------
     cd /d "!_build!"
-    call :Command !rc! /nologo %cl_obj%"!_build!\logo.res" "!_root!\data\logo.rc"
+    call :Command !rc_exe! /nologo %cl_obj%"!_build!\logo.res" "!_root!\data\logo.rc"
     if errorlevel 1 goto:$MainError
 
     :: --- Get Current Git Commit Id ----------------------------------------------
