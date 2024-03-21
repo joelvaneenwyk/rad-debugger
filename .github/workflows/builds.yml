@@ -24,15 +24,15 @@ jobs:
           - raddbgi_from_dwarf
           - raddbgi_dump
           - raddbgi_breakpad_from_pdb
-          # - ryan_scratch
+          - ryan_scratch
           - cpp_tests
-          # - look_at_raddbg
+          - look_at_raddbg
           - mule_main
           - mule_module
           - mule_hotload
 
-    # ⚙️ msvc | raddbg:debug
-    name: "⚙️ ${{ matrix.compiler }} | ${{ matrix.target }}:${{ matrix.config }}"
+    # ⚙️ raddbg:msvc:debug
+    name: "⚙️ ${{ matrix.target }}:${{ matrix.compiler }}:${{ matrix.config }}"
     steps:
       - name: "🔃 checkout"
         uses: actions/checkout@v4
