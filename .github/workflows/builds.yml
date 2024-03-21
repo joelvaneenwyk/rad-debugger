@@ -18,7 +18,18 @@ jobs:
       matrix:
         config: [debug, release]
         compiler: [msvc, clang]
-        target: [raddbg, raddbg_from_pdb, raddbg_from_dwarf, raddbgi_dump]
+        target:
+          - raddbg
+          - raddbgi_from_pdb
+          - raddbgi_from_dwarf
+          - raddbgi_dump
+          - raddbgi_breakpad_from_pdb
+          # - ryan_scratch
+          - cpp_tests
+          # - look_at_raddbg
+          - mule_main
+          - mule_module
+          - mule_hotload
 
     # ⚙️ msvc | raddbg:debug
     name: "⚙️ ${{ matrix.compiler }} | ${{ matrix.target }}:${{ matrix.config }}"

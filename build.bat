@@ -135,9 +135,27 @@ setlocal EnableDelayedExpansion
     if "%telemetry%"=="1" set "auto_compile_flags=!auto_compile_flags! -DPROFILE_TELEMETRY=1" && echo [telemetry profiling enabled]
     if "%asan%"=="1"      set "auto_compile_flags=!auto_compile_flags! -fsanitize=address" && echo [asan enabled]
 
-    set "msvc_path=C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Tools\MSVC\14.39.33519"
-    set "winsdk_include_path=C:\Program Files (x86)\Windows Kits\10\Include\10.0.22621.0"
-    set "winsdk_lib_path=C:\Program Files (x86)\Windows Kits\10\Lib\10.0.22621.0"
+    set "_msvc_path=C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Tools\MSVC"
+    if not exist "!_msvc_path!" set "_msvc_path=C:\Program Files\Microsoft Visual Studio\2022\Professional\VC\Tools\MSVC"
+    if not exist "!_msvc_path!" set "_msvc_path=C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Tools\MSVC"
+
+    set "msvc_path="
+    for /D %%x in ("!_msvc_path!\*") do if not defined msvc_path set "msvc_path=%%x"
+    echo [msvc_path] !msvc_path!
+
+    set "_vcvarsall=C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat"
+    if not exist "!_vcvarsall!" set "_vcvarsall=C:\Program Files\Microsoft Visual Studio\2022\Professional\VC\Auxiliary\Build\vcvarsall.bat"
+    if not exist "!_vcvarsall!" set "_vcvarsall=C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Auxiliary\Build\vcvarsall.bat"
+    ::if exist "!_vcvarsall!" call "!_vcvarsall!" x64
+
+    set "winsdk_include_path="
+    for /D %%y in ("C:\Program Files (x86)\Windows Kits\10\Include\*") do if not defined winsdk_include_path set "winsdk_include_path=%%y"
+    echo [winsdk_include_path] !winsdk_include_path!
+
+    set "winsdk_lib_path="
+    for /D %%y in ("C:\Program Files (x86)\Windows Kits\10\Lib\*") do if not defined winsdk_lib_path set "winsdk_lib_path=%%y"
+    echo [winsdk_lib_path] !winsdk_lib_path!
+
     set "_inc=/I"!msvc_path!\include" /I"!winsdk_include_path!\ucrt" /I"!winsdk_include_path!\um" /I"!winsdk_include_path!\shared" "
     set "_lib=/LIBPATH:"!msvc_path!\lib\x64" /LIBPATH:"!winsdk_lib_path!\um\x64" /LIBPATH:"!winsdk_lib_path!\ucrt\x64" /LIBPATH:"!winsdk_lib_path!\shared" "
 
@@ -219,11 +237,10 @@ setlocal EnableDelayedExpansion
     if errorlevel 1 goto:$MainError
     if "%raddbgi_from_dwarf%"=="1"       call !compile!             "!_root!\src\raddbgi_from_dwarf\raddbgi_from_dwarf.c"              !compile_link! !out!"!_build!\raddbgi_from_dwarf.exe"
     if errorlevel 1 goto:$MainError
-    if "%raddbgi_dump%"=="1"             call !compile!             "!_root!\src\raddbg_dump\raddbg_dump.c"                             !compile_link! !out!"!_build!\raddbg_dump.exe"
+    if "%raddbgi_dump%"=="1"             call !compile!             "!_root!\src\raddbgi_dump\raddbgi_dump_main.c"                             !compile_link! !out!"!_build!\raddbgi_dump.exe"
     if errorlevel 1 goto:$MainError
   if "%raddbgi_breakpad_from_pdb%"=="1"             call !compile!             "!_root!\src\raddbgi_breakpad_from_pdb\raddbgi_breakpad_from_pdb_main.c"                             !compile_link! !out!"!_build!\raddbgi_breakpad_from_pdb.exe"
     if errorlevel 1 goto:$MainError
-
     if "%ryan_scratch%"=="1"            call !compile!             "!_root!\src\scratch\ryan_scratch.c"                                !compile_link! !out!"!_build!\ryan_scratch.exe"
     if errorlevel 1 goto:$MainError
     if "%cpp_tests%"=="1"               call !compile!             "!_root!\src\scratch\i_hate_c_plus_plus.cpp"                        !compile_link! !out!"!_build!\cpp_tests.exe"
