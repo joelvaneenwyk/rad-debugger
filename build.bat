@@ -37,7 +37,7 @@ setlocal EnableExtensions
         set "_cmd=!_cmd:    = !"
         set "_cmd=!_cmd:   = !"
         set "_cmd=!_cmd:  = !"
-        echo ##[command] !_cmd!
+        echo ##[command]!_cmd!
         call !_cmd!
     endlocal & exit /b %errorlevel%
 
@@ -99,7 +99,6 @@ exit /b %errorlevel%
     set "__DOTNET_PREFERRED_BITNESS="
     set "__VSCMD_PREINIT_PATH="
     set "_build="
-    set "_error="
     set "_exe="
     set "_inc="
     set "_root="
@@ -333,7 +332,7 @@ setlocal EnableDelayedExpansion
     if "!mule_hotload!"=="1"                call :Command !compile!                          "!_root!\src\mule\mule_hotload_module_main.c" !compile_link! !link_dll! !out!"!_build!\mule_hotload_module.dll"
     if errorlevel 1 goto:$BuildError
 
-    echo RAD Debugger build complete.
+    echo ##[info]Project build complete.
     goto:$BuildDone
 
     :$BuildError
@@ -346,12 +345,12 @@ setlocal EnableDelayedExpansion
         :$BuildSkipClangOverrides
 
         set _error=%errorlevel%
-        echo ##[error][!_error!] Failed to build project.
+        echo ##[error]Failed to build project. Error code: !_error!
         goto:$BuildDone
 
     :$BuildErrorIgnore
         set "_error=0"
-        echo ##[warning] Ignored known build error for current project.
+        echo ##[warning]Ignored known build error for current project.
         goto:$BuildDone
 
     :$BuildDone
@@ -365,12 +364,13 @@ endlocal & exit /b %_error%
 setlocal EnableDelayedExpansion
     echo ##[group]%0 %~1 %~2 %~3 %~4 %~5 %~6 %~7 %~8 %~9
     echo ##[command]%0 %~1 %~2 %~3 %~4 %~5 %~6 %~7 %~8 %~9
-    call :Clear
 
+    set "_error=0"
     if "%~1"=="all" goto:$MainBuildAll
 
     :$MainBuild
         call :Build %*
+        if errorlevel 1 goto:$MainError
         goto:$MainDone
 
     :$MainBuildAll
@@ -397,13 +397,12 @@ setlocal EnableDelayedExpansion
         call :Build mule_hotload                      %*
         if errorlevel 1 goto:$MainError
 
-        set _error=%errorlevel%
-        echo [INFO][!_error!] Built all projects with '!_compiler!' compiler and '!_config!' configuration.
+        echo ##[info]Built all projects successfully.
         goto:$MainDone
 
     :$MainError
         set _error=%errorlevel%
-        echo [ERROR][!_error!] Failed to build projects.
+        echo ##[error]Failed to build projects. Error code: !_error!
         goto:$MainDone
 
     :$MainDone
