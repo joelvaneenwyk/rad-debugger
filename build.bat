@@ -37,7 +37,7 @@ setlocal EnableExtensions
         set "_cmd=!_cmd:    = !"
         set "_cmd=!_cmd:   = !"
         set "_cmd=!_cmd:  = !"
-        echo ##[cmd] !_cmd!
+        echo ##[command] !_cmd!
         call !_cmd!
     endlocal & exit /b %errorlevel%
 
@@ -110,7 +110,8 @@ endlocal & exit /b %errorlevel%
 ::-------------------------------
 :$Main
 setlocal EnableDelayedExpansion
-    echo ##[cmd] %0 %~1 %~2 %~3 %~4 %~5 %~6 %~7 %~8 %~9
+    echo ##[group]%0 %~1 %~2 %~3 %~4 %~5 %~6 %~7 %~8 %~9
+    echo ##[command]%0 %~1 %~2 %~3 %~4 %~5 %~6 %~7 %~8 %~9
 
     set "_error=0"
     set "_variables=%*"
@@ -327,15 +328,16 @@ setlocal EnableDelayedExpansion
         if "!look_at_raddbg!"=="1" goto:$MainErrorIgnore
         if "!ryan_scratch!"=="1" goto:$MainErrorIgnore
         set _error=%errorlevel%
-        echo [ERROR][!_error!] Failed to build project.
+        echo ##[error][!_error!] Failed to build project.
         goto:$MainDone
 
     :$MainErrorIgnore
         set "_error=0"
-        echo [WARNING] Ignored known build error for current project.
+        echo ##[error] Ignored known build error for current project.
         goto:$MainDone
 
     :$MainDone
+        echo ##[endgroup]
         :: --- Unset ------------------------------------------------------------------
         for %%a in (!_variables!) do set "%%a=0"
         set "raddbg="
