@@ -245,12 +245,16 @@ setlocal EnableDelayedExpansion
     if "!debug!"=="1"     set "compile=!compile_debug!"
     if "!release!"=="1"   set "compile=!compile_release!"
 
-    if "!clang!"=="1" (
-        set "mule_module=0"
-        echo [WARNING] Skipped unsupported "mule_module" in Clang build.
-        set "mule_hotload=0"
-        echo [WARNING] Skipped unsupported "mule_hotload" in Clang build.
-      )
+    if not "!clang!"=="1" goto:$MainSkipClangOverrides
+        if "!mule_module!"=="1" (
+            set "mule_module=0"
+            echo [WARNING] Skipped unsupported "mule_module" in Clang build.
+        )
+        if "!mule_module!"=="1" (
+            set "mule_hotload=0"
+            echo [WARNING] Skipped unsupported "mule_hotload" in Clang build.
+        )
+    :$MainSkipClangOverrides
 
     :: --- Prep Directories -------------------------------------------------------
     if not exist "!_build!" mkdir "!_build!"
@@ -320,17 +324,24 @@ setlocal EnableDelayedExpansion
     goto:$MainDone
 
     :$MainError
-    set _error=%errorlevel%
-    echo [ERROR][!_error!] Failed to build project.
-    goto:$MainDone
+        if "!look_at_raddbg!"=="1" goto:$MainErrorIgnore
+        if "!ryan_scratch!"=="1" goto:$MainErrorIgnore
+        set _error=%errorlevel%
+        echo [ERROR][!_error!] Failed to build project.
+        goto:$MainDone
+
+    :$MainErrorIgnore
+        set "_error=0"
+        echo [WARNING] Ignored known build error for current project.
+        goto:$MainDone
 
     :$MainDone
-    :: --- Unset ------------------------------------------------------------------
-    for %%a in (!_variables!) do set "%%a=0"
-    set "raddbg="
-    set "compile="
-    set "compile_link="
-    set "out="
-    set "msvc="
-    set "debug="
+        :: --- Unset ------------------------------------------------------------------
+        for %%a in (!_variables!) do set "%%a=0"
+        set "raddbg="
+        set "compile="
+        set "compile_link="
+        set "out="
+        set "msvc="
+        set "debug="
 endlocal & exit /b %_error%

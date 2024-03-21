@@ -25,12 +25,12 @@ setlocal EnableDelayedExpansion
     if errorlevel 1 goto:$MainError
     call "%~dp0build.bat" raddbgi_breakpad_from_pdb    "!_compiler!" "!_config!"
     if errorlevel 1 goto:$MainError
-    :: call "%~dp0build.bat" ryan_scratch              "!_compiler!" "!_config!"
-    :: if errorlevel 1 goto:$MainError
+    call "%~dp0build.bat" ryan_scratch              "!_compiler!" "!_config!"
+    if errorlevel 1 goto:$MainError
     call "%~dp0build.bat" cpp_tests                    "!_compiler!" "!_config!"
     if errorlevel 1 goto:$MainError
-    :: call "%~dp0build.bat" look_at_raddbg            "!_compiler!" "!_config!"
-    :: if errorlevel 1 goto:$MainError
+    call "%~dp0build.bat" look_at_raddbg            "!_compiler!" "!_config!"
+    if errorlevel 1 goto:$MainError
     call "%~dp0build.bat" mule_main                    "!_compiler!" "!_config!"
     if errorlevel 1 goto:$MainError
     call "%~dp0build.bat" mule_module                  "!_compiler!" "!_config!"
