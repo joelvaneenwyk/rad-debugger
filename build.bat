@@ -150,11 +150,15 @@ setlocal EnableDelayedExpansion
     echo [msvc_path] !msvc_path!
 
     set "_vcvarsall=!msvc_root!\VC\Auxiliary\Build\vcvarsall.bat"
-    ::if exist "!_vcvarsall!" call "!_vcvarsall!" x64
+    ::
+    :: If needed, you can run `call "!_vcvarsall!" x64` to further setup the development environment. This
+    :: will be much slower, though, so not enabled by default.
+    ::
 
     set "winsdk_bin_path="
     for /D %%y in ("C:\Program Files (x86)\Windows Kits\10\Bin\*") do if not defined winsdk_bin_path set "winsdk_bin_path=%%y"
     echo [winsdk_bin_path] !winsdk_bin_path!
+    set "path=!winsdk_bin_path!\x64;%path%"
 
     set "winsdk_include_path="
     for /D %%y in ("C:\Program Files (x86)\Windows Kits\10\Include\*") do if not defined winsdk_include_path set "winsdk_include_path=%%y"
@@ -210,8 +214,6 @@ setlocal EnableDelayedExpansion
     if "%clang%"=="1" set "EHsc="
     if "%msvc%"=="1"  call :Find rc_exe "rc.exe"
     if "%clang%"=="1" call :Find rc_exe "llvm-rc.exe"
-
-    set "path=C:\Program Files (x86)\Windows Kits\10\bin\10.0.19041.0\x64;%path%"
 
     :: --- Choose Compile/Link Lines ----------------------------------------------
     if "%msvc%"=="1"      set "compile_debug=!cl_debug!"
