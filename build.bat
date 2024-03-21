@@ -170,6 +170,8 @@ setlocal EnableDelayedExpansion
     if "%msvc%"=="1"  call :Find rc_exe "rc.exe"
     if "%clang%"=="1" call :Find rc_exe "llvm-rc.exe"
 
+    set "path=C:\Program Files (x86)\Windows Kits\10\bin\10.0.19041.0\x64;%path%"
+
     :: --- Choose Compile/Link Lines ----------------------------------------------
     if "%msvc%"=="1"      set "compile_debug=!cl_debug!"
     if "%msvc%"=="1"      set "compile_release=!cl_release!"
@@ -204,38 +206,39 @@ setlocal EnableDelayedExpansion
       goto:$MainSkipMetagen
     )
     cd /d "!_build!"
-    call :Command !compile_debug! ^
-        "!_root!\src\metagen\metagen_main.c" ^
-        !compile_link! ^
-        %out%"!_build!\metagen.exe"
+    call :Command !compile_debug! "!_root!\src\metagen\metagen_main.c" !compile_link! !out!"!_build!\metagen.exe"
+    echo [metagen][!errorlevel!] Done.
     if errorlevel 1 goto:$MainError
     :$MainSkipMetagen
-    goto:$StartBuild
 
     :: --- Build Everything (@build_targets) --------------------------------------
     :$StartBuild
-    call :Build raddbg                  !compile! %gfx%       "!_root!\src\raddbg\raddbg_main.cpp"                                !compile_link! %out%"!_build!\raddbg.exe"
+    if "%raddbg%"=="1"                  call !compile! %gfx%       "!_root!\src\raddbg\raddbg_main.cpp"                                !compile_link! !out!"!_build!\raddbg.exe"
     if errorlevel 1 goto:$MainError
-    call :Build raddbg_from_pdb         !compile!             "!_root!\src\raddbg_convert\pdb\raddbg_from_pdb_main.c"             !compile_link! %out%"!_build!\raddbg_from_pdb.exe"
+    if "%raddbgi_from_pdb%"=="1"         call !compile!             "!_root!\src\raddbgi_from_pdb\raddbgi_from_pdb_main.c"             !compile_link! !out!"!_build!\raddbgi_from_pdb.exe"
     if errorlevel 1 goto:$MainError
-    call :Build raddbg_from_dwarf       !compile!             "!_root!\src\raddbg_convert\dwarf\raddbg_from_dwarf.c"              !compile_link! %out%"!_build!\raddbg_from_dwarf.exe"
+    if "%raddbgi_from_dwarf%"=="1"       call !compile!             "!_root!\src\raddbgi_from_dwarf\raddbgi_from_dwarf.c"              !compile_link! !out!"!_build!\raddbgi_from_dwarf.exe"
     if errorlevel 1 goto:$MainError
-    call :Build raddbg_dump             !compile!             "!_root!\src\raddbg_dump\raddbg_dump.c"                             !compile_link! %out%"!_build!\raddbg_dump.exe"
+    if "%raddbgi_dump%"=="1"             call !compile!             "!_root!\src\raddbg_dump\raddbg_dump.c"                             !compile_link! !out!"!_build!\raddbg_dump.exe"
     if errorlevel 1 goto:$MainError
-    call :Build ryan_scratch            !compile!             "!_root!\src\scratch\ryan_scratch.c"                                !compile_link! %out%"!_build!\ryan_scratch.exe"
+  if "%raddbgi_breakpad_from_pdb%"=="1"             call !compile!             "!_root!\src\raddbgi_breakpad_from_pdb\raddbgi_breakpad_from_pdb_main.c"                             !compile_link! !out!"!_build!\raddbgi_breakpad_from_pdb.exe"
     if errorlevel 1 goto:$MainError
-    call :Build cpp_tests               !compile!             "!_root!\src\scratch\i_hate_c_plus_plus.cpp"                        !compile_link! %out%"!_build!\cpp_tests.exe"
+
+    if "%ryan_scratch%"=="1"            call !compile!             "!_root!\src\scratch\ryan_scratch.c"                                !compile_link! !out!"!_build!\ryan_scratch.exe"
     if errorlevel 1 goto:$MainError
-    call :Build look_at_raddbg          !compile!             "!_root!\src\scratch\look_at_raddbg.c"                              !compile_link! %out%"!_build!\look_at_raddbg.exe"
+    if "%cpp_tests%"=="1"               call !compile!             "!_root!\src\scratch\i_hate_c_plus_plus.cpp"                        !compile_link! !out!"!_build!\cpp_tests.exe"
     if errorlevel 1 goto:$MainError
-    call :Build mule_main               del "!_build!\vc*.pdb" "!_build!\mule*.pdb"
-    call :Build mule_main               !compile_release!   %only_compile%  "!_root!\src\mule\mule_inline.cpp"
-    call :Build mule_main               !compile_release!   %only_compile%  "!_root!\src\mule\mule_o2.cpp"
-    call :Build mule_main               !compile_debug!     %EHsc%          "!_root!\src\mule\mule_main.cpp" "!_root!\src\mule\mule_c.c" mule_inline.obj mule_o2.obj !compile_link! %out%"!_build!\mule_main.exe"
+    if "%look_at_raddbg%"=="1"          call !compile!             "!_root!\src\scratch\look_at_raddbg.c"                              !compile_link! !out!"!_build!\look_at_raddbg.exe"
     if errorlevel 1 goto:$MainError
-    call :Build mule_module             !compile!             "!_root!\src\mule\mule_module.cpp"                                  !compile_link! %link_dll% "%out%mule_module.dll"
+    if "%mule_main%"=="1"               call del "!_build!\vc*.pdb" "!_build!\mule*.pdb"
+    if "%mule_main%"=="1"               call !compile_release!   %only_compile%  "!_root!\src\mule\mule_inline.cpp"
+    if "%mule_main%"=="1"               call !compile_release!   %only_compile%  "!_root!\src\mule\mule_o2.cpp"
+    if "%mule_main%"=="1"               call !compile_debug!     %EHsc%          "!_root!\src\mule\mule_main.cpp" "!_root!\src\mule\mule_c.c" "!_build!\mule_inline.obj" "!_build!\mule_o2.obj" !compile_link!    !out!"!_build!\mule_main.exe"
     if errorlevel 1 goto:$MainError
-    call :Build mule_hotload            !compile!             "!_root!\src\mule\mule_hotload_main.c" !compile_link! "%out%mule_hotload.exe" & !compile! "!_root!\src\mule\mule_hotload_module_main.c" !compile_link! %link_dll% %out%mule_hotload_module.dll
+    if "%mule_module%"=="1"             call !compile!             "!_root!\src\mule\mule_module.cpp"                                  !compile_link! %link_dll% "!out!mule_module.dll"
+    if errorlevel 1 goto:$MainError
+    if "%mule_hotload%"=="1"            call !compile!             "!_root!\src\mule\mule_hotload_main.c" !compile_link! "!out!mule_hotload.exe"
+    if "%mule_hotload%"=="1"            call !compile! "!_root!\src\mule\mule_hotload_module_main.c" !compile_link! %link_dll% !out!"!_build!\mule_hotload_module.dll"
     if errorlevel 1 goto:$MainError
 
     :: --- Unset ------------------------------------------------------------------
@@ -246,11 +249,12 @@ setlocal EnableDelayedExpansion
     set out=
     set msvc=
     set debug=
+    echo RAD Debugger build complete.
     goto:$MainDone
 
     :$MainError
     set _error=%errorlevel%
-    echo [ERROR] Failed to build project with '!_error!' return code.
+    echo [ERROR][!_error!] Failed to build project.
     goto:$MainDone
 
     :$MainDone
