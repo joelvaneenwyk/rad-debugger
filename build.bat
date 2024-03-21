@@ -129,14 +129,10 @@ exit /b 0
 
 ::
 ::-------------------------------
-:: Main
+:: Build
 ::-------------------------------
-:$Main
+:Build
 setlocal EnableDelayedExpansion
-    echo ##[group]%0 %~1 %~2 %~3 %~4 %~5 %~6 %~7 %~8 %~9
-    echo ##[command]%0 %~1 %~2 %~3 %~4 %~5 %~6 %~7 %~8 %~9
-    call :Clear
-
     set "_error=0"
     set "_variables=%*"
     set "_root=%~dp0"
@@ -280,7 +276,7 @@ setlocal EnableDelayedExpansion
     :: --- Produce Logo Icon File -------------------------------------------------
     cd /d "!_build!"
     call :Command !rc_exe! /nologo !obj!"!_build!\logo.res" "!_root!\data\logo.rc"
-    if errorlevel 1 goto:$MainError
+    if errorlevel 1 goto:$BuildError
 
     :: --- Get Current Git Commit Id ----------------------------------------------
     for /f  %%i in ('call "C:\Program Files\Git\bin\git.exe" describe --always --dirty') do (
@@ -290,77 +286,128 @@ setlocal EnableDelayedExpansion
     :: --- Build & Run Metaprogram ------------------------------------------------
     if "!no_meta!"=="1" (
       echo [skipped metagen]
-      goto:$MainSkipMetagen
+      goto:$BuildSkipMetagen
     )
     cd /d "!_build!"
     call :Command !compile_debug! "!_root!\src\metagen\metagen_main.c" !compile_link! !out!"!_build!\metagen.exe"
     echo [metagen][!errorlevel!] Done.
-    if errorlevel 1 goto:$MainError
-    :$MainSkipMetagen
+    if errorlevel 1 goto:$BuildError
+    :$BuildSkipMetagen
 
     :: --- Build Everything (@build_targets) --------------------------------------
     :$StartBuild
     if "!raddbg!"=="1"                      call !compile! !gfx!                    "!_root!\src\raddbg\raddbg_main.cpp"                                !compile_link! !out!"!_build!\raddbg.exe"
-    if errorlevel 1 goto:$MainError
+    if errorlevel 1 goto:$BuildError
 
     if "!raddbgi_from_pdb!"=="1"            call !compile!                          "!_root!\src\raddbgi_from_pdb\raddbgi_from_pdb_main.c"             !compile_link! !out!"!_build!\raddbgi_from_pdb.exe"
-    if errorlevel 1 goto:$MainError
+    if errorlevel 1 goto:$BuildError
 
     if "!raddbgi_from_dwarf!"=="1"          call !compile!                          "!_root!\src\raddbgi_from_dwarf\raddbgi_from_dwarf.c"              !compile_link! !out!"!_build!\raddbgi_from_dwarf.exe"
-    if errorlevel 1 goto:$MainError
+    if errorlevel 1 goto:$BuildError
 
     if "!raddbgi_dump!"=="1"                call !compile!                          "!_root!\src\raddbgi_dump\raddbgi_dump_main.c"                             !compile_link! !out!"!_build!\raddbgi_dump.exe"
-    if errorlevel 1 goto:$MainError
+    if errorlevel 1 goto:$BuildError
 
     if "!raddbgi_breakpad_from_pdb!"=="1"   call !compile!                          "!_root!\src\raddbgi_breakpad_from_pdb\raddbgi_breakpad_from_pdb_main.c"                             !compile_link! !out!"!_build!\raddbgi_breakpad_from_pdb.exe"
-    if errorlevel 1 goto:$MainError
+    if errorlevel 1 goto:$BuildError
 
     if "!ryan_scratch!"=="1"                call !compile!                          "!_root!\src\scratch\ryan_scratch.c"                                !compile_link! !out!"!_build!\ryan_scratch.exe"
-    if errorlevel 1 goto:$MainError
+    if errorlevel 1 goto:$BuildError
 
     if "!cpp_tests!"=="1"                   call !compile!                          "!_root!\src\scratch\i_hate_c_plus_plus.cpp"                        !compile_link! !out!"!_build!\cpp_tests.exe"
-    if errorlevel 1 goto:$MainError
+    if errorlevel 1 goto:$BuildError
 
     if "!look_at_raddbg!"=="1"              call !compile!                          "!_root!\src\scratch\look_at_raddbg.c"                              !compile_link! !out!"!_build!\look_at_raddbg.exe"
-    if errorlevel 1 goto:$MainError
+    if errorlevel 1 goto:$BuildError
 
     if "!mule_main!"=="1"                   call del                                "!_build!\vc*.pdb" "!_build!\mule*.pdb" > nul 2>&1
     if "!mule_main!"=="1"                   call :Command call !compile_release! !only_compile!   "!_root!\src\mule\mule_inline.cpp" !out!"!_build!\mule_inline.obj"
     if "!mule_main!"=="1"                   call :Command call !compile_release! !only_compile!   "!_root!\src\mule\mule_o2.cpp" !out!"!_build!\mule_o2.obj"
     if "!mule_main!"=="1"                   call :Command call !compile_debug!   !EHsc!           "!_root!\src\mule\mule_main.cpp" "!_root!\src\mule\mule_c.c" "!_build!\mule_inline.obj" "!_build!\mule_o2.obj" !compile_link!    !out!"!_build!\mule_main.exe"
-    if errorlevel 1 goto:$MainError
+    if errorlevel 1 goto:$BuildError
 
     if "!mule_module!"=="1"                 call :Command !compile!                          "!_root!\src\mule\mule_module.cpp"                                  !compile_link! !link_dll! !out!"!_build!\mule_module.dll"
-    if errorlevel 1 goto:$MainError
+    if errorlevel 1 goto:$BuildError
 
     if "!mule_hotload!"=="1"                call :Command !compile!                          "!_root!\src\mule\mule_hotload_main.c" !compile_link! !out!"!_build!\mule_hotload.exe"
     if "!mule_hotload!"=="1"                call :Command !compile!                          "!_root!\src\mule\mule_hotload_module_main.c" !compile_link! !link_dll! !out!"!_build!\mule_hotload_module.dll"
-    if errorlevel 1 goto:$MainError
+    if errorlevel 1 goto:$BuildError
 
     echo RAD Debugger build complete.
-    goto:$MainDone
+    goto:$BuildDone
 
-    :$MainError
-        if "!look_at_raddbg!"=="1" goto:$MainErrorIgnore
-        if "!ryan_scratch!"=="1" goto:$MainErrorIgnore
+    :$BuildError
+        if "!look_at_raddbg!"=="1" goto:$BuildErrorIgnore
+        if "!ryan_scratch!"=="1" goto:$BuildErrorIgnore
 
-        if not "!clang!"=="1" goto:$MainSkipClangOverrides
-            if "!mule_module!"=="1" goto:$MainErrorIgnore
-            if "!mule_hotload!"=="1" goto:$MainErrorIgnore
-        :$MainSkipClangOverrides
+        if not "!clang!"=="1" goto:$BuildSkipClangOverrides
+            if "!mule_module!"=="1" goto:$BuildErrorIgnore
+            if "!mule_hotload!"=="1" goto:$BuildErrorIgnore
+        :$BuildSkipClangOverrides
 
         set _error=%errorlevel%
         echo ##[error][!_error!] Failed to build project.
-        goto:$MainDone
+        goto:$BuildDone
 
-    :$MainErrorIgnore
+    :$BuildErrorIgnore
         set "_error=0"
         echo ##[warning] Ignored known build error for current project.
-        goto:$MainDone
+        goto:$BuildDone
 
-    :$MainDone
+    :$BuildDone
         echo ##[endgroup]
         :: --- Unset ------------------------------------------------------------------
         for %%a in (!_variables!) do set "%%a=0"
         call :Clear
 endlocal & exit /b %_error%
+
+:$Main
+setlocal EnableDelayedExpansion
+    echo ##[group]%0 %~1 %~2 %~3 %~4 %~5 %~6 %~7 %~8 %~9
+    echo ##[command]%0 %~1 %~2 %~3 %~4 %~5 %~6 %~7 %~8 %~9
+    call :Clear
+
+    if "%~1"=="all" goto:$MainBuildAll
+
+    :$MainBuild
+        call :Build %*
+        goto:$MainDone
+
+    :$MainBuildAll
+        call :Build raddbg                            %*
+        if errorlevel 1 goto:$MainError
+        call :Build raddbgi_from_pdb                  %*
+        if errorlevel 1 goto:$MainError
+        call :Build raddbgi_from_dwarf                %*
+        if errorlevel 1 goto:$MainError
+        call :Build raddbgi_dump                      %*
+        if errorlevel 1 goto:$MainError
+        call :Build raddbgi_breakpad_from_pdb         %*
+        if errorlevel 1 goto:$MainError
+        call :Build ryan_scratch                      %*
+        if errorlevel 1 goto:$MainError
+        call :Build cpp_tests                         %*
+        if errorlevel 1 goto:$MainError
+        call :Build look_at_raddbg                    %*
+        if errorlevel 1 goto:$MainError
+        call :Build mule_main                         %*
+        if errorlevel 1 goto:$MainError
+        call :Build mule_module                       %*
+        if errorlevel 1 goto:$MainError
+        call :Build mule_hotload                      %*
+        if errorlevel 1 goto:$MainError
+
+        set _error=%errorlevel%
+        echo [INFO][!_error!] Built all projects with '!_compiler!' compiler and '!_config!' configuration.
+        goto:$MainDone
+
+    :$MainError
+        set _error=%errorlevel%
+        echo [ERROR][!_error!] Failed to build projects.
+        goto:$MainDone
+
+    :$MainDone
+    call :Clear
+endlocal & (
+    exit /b %_error%
+)
