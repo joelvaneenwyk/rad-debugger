@@ -279,7 +279,6 @@ setlocal EnableDelayedExpansion
     )
     cd /d "!_build!"
     call :Command !compile_debug! "!_root!\src\metagen\metagen_main.c" !compile_link! !out!"!_build!\metagen.exe"
-    echo [metagen][!errorlevel!] Done.
     if errorlevel 1 goto:$BuildError
     :$BuildSkipMetagen
 
@@ -378,4 +377,4 @@ setlocal EnableExtensions
         goto:$MainDone
 
     :$MainDone
-endlocal & exit /b 0
+endlocal & exit /b %errorlevel%
