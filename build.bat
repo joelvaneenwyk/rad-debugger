@@ -1,4 +1,4 @@
-@echo off && goto:$Main
+@echo off && goto:$Init
 :: --- Usage Notes (2024/1/10) ------------------------------------------------
 ::
 :: This is a central build script for the RAD Debugger project. It takes a list
@@ -27,7 +27,7 @@
 :: cspell:ignore vcvarsall,libpath,nologo,bitfield,xclang,fdiagnostics
 :: cspell:ignore dstrdup,dprofile,fsanitize,gcodeview,strdup,flto,dndebug
 :: cspell:ignore userprofile,natvis,metagen,breakpad,hotload,dgnu,xlinker
-:: cspell:ignore draddbg,endgroup,metaprogram
+:: cspell:ignore draddbg,endgroup,metaprogram,delims
 
 ::-------------------------------------------------
 :: Run a command and echo that command to console
@@ -114,14 +114,33 @@ exit /b %errorlevel%
     )
 exit /b 0
 
+:GetPath
+setlocal EnableDelayedExpansion
+    set "_var=%~1"
+    set "_path_search=%~2"
+    set "%_var%="
+
+    if not exist "!_path_search!" goto:$GetPathDone
+    for /F "tokens=*" %%A IN ('dir /b /o-d /a:d "%_path_search%\*"') do (
+        if not "%%~A"=="wdf" set "%_var%_dir=%%~A"
+    )
+
+    :$GetPathDone
+        set "_out_var_dir=!%_var%_dir!"
+        set "_out_var=!_path_search!\!%_var%!"
+        echo [%_var%] "!_out_var!"
+endlocal & (
+    set "%_var%=%_out_var%"
+    set "%_var%_dir=%_out_var_dir%"
+    exit /b 0
+)
+
 ::
 ::-------------------------------
 :: Build
 ::-------------------------------
 :Build
 setlocal EnableDelayedExpansion
-    call :Clear
-
     set "_error=0"
     set "_root=%~dp0"
     if "!_root:~-1!"=="\"                               set "_root=!_root:~0,-1!"
@@ -157,33 +176,6 @@ setlocal EnableDelayedExpansion
     if "%telemetry%"=="1"      set "auto_compile_flags=!auto_compile_flags! -DPROFILE_TELEMETRY=1" && echo [telemetry profiling enabled]
     if "%asan%"=="1"           set "auto_compile_flags=!auto_compile_flags! -fsanitize=address" && echo [asan enabled]
 
-    goto:$MainSetPaths
-
-    :GetPath
-    setlocal EnableDelayedExpansion
-        set "_var=%~1"
-        set "_path_search=%~2"
-        if not exist "!_path_search!" goto:$GetPathDone
-
-        set "%_var%="
-        set "_var_dir=%_var%_dir"
-        set "%_var_dir%=%_path_search%"
-        for /F "tokens=*" %%A IN ('dir /b /o-d /a:d "%_path_search%\*"') do (
-            set "%_var%=%_path_search%\%%~A"
-            if not "%%~A"=="wdf" goto:$GetPathDone
-        )
-
-        :$GetPathDone
-            set "_out_var=!%_var%!"
-            set "_out_var_dir=!%_var_dir%!"
-            echo [%_var%] "!_out_var!"
-    endlocal & (
-        set "%_var%=%_out_var%"
-        set "%_var%_dir=%_out_var_dir%"
-        exit /b 0
-    )
-
-    :$MainSetPaths
     call :GetPath "msvc_root"                      "C:\Program Files\Microsoft Visual Studio\2022"
     call :GetPath "winsdk_include_path"            "C:\Program Files (x86)\Windows Kits\10\Include"
     call :GetPath "winsdk_lib_path"                "C:\Program Files (x86)\Windows Kits\10\Lib"
@@ -351,6 +343,26 @@ endlocal & (
     set "RAD_RETURN_CODE=%_error%"
     exit /b %_error%
 )
+
+:$Init
+    setlocal DisableDelayedExpansion
+    (set \n=^^^
+%= This creates an escaped Line Feed - DO NOT ALTER =%
+)
+
+    :: Example use case:
+    ::
+    ::  set _test_folder=c:\demo
+    ::  %_macro_demo% _test_folder
+    ::
+    set _macro_demo=for /L %%M in (1 1 2) do if %%M==2 (%\n%
+          for /F "tokens=1 delims=, " %%G in ("!argv!") do (%\n%
+             echo set "_argument1=%%G"%\n%
+             set "_argument1=!%%~G!"%\n%
+             echo !_argument1!\*.xls%\n%
+          )%\n%
+    ) else setlocal EnableDelayedExpansion ^& set argv=,
+goto:$Main
 
 :$Main
 setlocal EnableExtensions
