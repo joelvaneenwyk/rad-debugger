@@ -1,4 +1,4 @@
-@echo off && goto:$Init
+@echo off && goto:$Main
 :: --- Usage Notes (2024/1/10) ------------------------------------------------
 ::
 :: This is a central build script for the RAD Debugger project. It takes a list
@@ -118,16 +118,19 @@ exit /b 0
 setlocal EnableDelayedExpansion
     set "_var=%~1"
     set "_path_search=%~2"
-    set "%_var%="
-
     if not exist "!_path_search!" goto:$GetPathDone
+
+    set "%_var%="
+    set "_var_dir=%_var%_dir"
+    set "%_var_dir%=%_path_search%"
     for /F "tokens=*" %%A IN ('dir /b /o-d /a:d "%_path_search%\*"') do (
-        if not "%%~A"=="wdf" set "%_var%_dir=%%~A"
+        set "%_var%=%_path_search%\%%~A"
+        if not "%%~A"=="wdf" goto:$GetPathDone
     )
 
     :$GetPathDone
-        set "_out_var_dir=!%_var%_dir!"
-        set "_out_var=!_path_search!\!%_var%!"
+        set "_out_var=!%_var%!"
+        set "_out_var_dir=!%_var_dir%!"
         echo [%_var%] "!_out_var!"
 endlocal & (
     set "%_var%=%_out_var%"
