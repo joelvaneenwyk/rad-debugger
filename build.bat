@@ -169,8 +169,8 @@ setlocal EnableDelayedExpansion
         set "_var_dir=%_var%_dir"
         set "%_var_dir%=%_path_search%"
         for /F "tokens=*" %%A IN ('dir /b /o-d /a:d "%_path_search%\*"') do (
-            set "%_var%=%_path_search%\%%A"
-            goto:$GetPathDone
+            set "%_var%=%_path_search%\%%~A"
+            if not "%%~A"=="wdf" goto:$GetPathDone
         )
 
         :$GetPathDone
@@ -179,6 +179,7 @@ setlocal EnableDelayedExpansion
             echo [%_var%] "!_out_var!"
     endlocal & (
         set "%_var%=%_out_var%"
+        set "%_var%_dir=%_out_var_dir%"
         exit /b 0
     )
 
@@ -203,11 +204,11 @@ setlocal EnableDelayedExpansion
     set "_inc=/I"!msvc_path!\include" /I"!winsdk_include_path!\ucrt" /I"!winsdk_include_path!\um" /I"!winsdk_include_path!\shared" "
     set "_lib=/LIBPATH:"!msvc_path!\lib\x64" /LIBPATH:"!winsdk_lib_path!\um\x64" /LIBPATH:"!winsdk_lib_path!\ucrt\x64" /LIBPATH:"!winsdk_lib_path!\shared" "
 
-    call :Find win_rc_exe "rc.exe"
-    call :Find llvm_rc_exe "llvm-rc.exe"
-
-    if "!msvc!"=="1"    set "rc_exe=!win_rc_exe!"
-    if "!clang!"=="1"   set "rc_exe=!llvm_rc_exe!"
+    if "!msvc!"=="1" (
+        call :Find rc_exe "rc.exe"
+    ) else (
+        call :Find rc_exe "llvm-rc.exe"
+    )
 
     call :Find                          cl_exe          "cl.exe"
     call :Find                          clang_cl_exe    "clang.exe"
@@ -347,6 +348,7 @@ setlocal EnableDelayedExpansion
     :$BuildDone
         echo ##[endgroup]
 endlocal & (
+    set "RAD_RETURN_CODE=%_error%"
     exit /b %_error%
 )
 
@@ -354,6 +356,7 @@ endlocal & (
 setlocal EnableExtensions
     echo ##[group]%0 %~1 %~2 %~3 %~4 %~5 %~6 %~7 %~8 %~9
     echo ##[command]%0 %~1 %~2 %~3 %~4 %~5 %~6 %~7 %~8 %~9
+    set RAD_RETURN_CODE=0
 
     :$MainBuild
         if "%~1"=="all" goto:$MainBuildAll
@@ -377,4 +380,7 @@ setlocal EnableExtensions
         goto:$MainDone
 
     :$MainDone
-endlocal & exit /b %errorlevel%
+endlocal & (
+    set RAD_RETURN_CODE=%RAD_RETURN_CODE%
+)
+exit /b %RAD_RETURN_CODE% > nul 2>&1
