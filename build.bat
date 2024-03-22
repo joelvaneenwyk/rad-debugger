@@ -95,7 +95,7 @@ setlocal EnableDelayedExpansion
     ) else (
       set _result="!_result!"
     )
-    echo !_var!: !_result!
+    echo [!_var!] !_result!
 endlocal & (
   set %_var%=%_result%
 )
@@ -105,8 +105,12 @@ exit /b %errorlevel%
 :: Clear known variables
 ::-------------------------------------------------
 :Clear
-    for %%a in ("__DOTNET_ADD_64BIT" "__DOTNET_PREFERRED_BITNESS" "__VSCMD_PREINIT_PATH" "_build" "_exe" "_inc" "_root" "_var" "cl_common" "cl_link" "cl_obj" "cl" "clang_out" "clang" "clink_dummy_capture_env" "compile_link" "compile" "debug" "Ehsc" "gfx" "INCLUDE" "LIB" "LINES" "link_dll" "msvc" "net" "out" "raddbg" "release") do (
-        set "%%a="
+    for %%a in ("__DOTNET_ADD_64BIT" "__DOTNET_PREFERRED_BITNESS" "__VSCMD_PREINIT_PATH"
+                "_build" "_exe" "_inc" "_root" "_var" "cl_common" "cl_link" "cl_obj" "cl"
+                "clang_out" "clang" "clink_dummy_capture_env" "compile_link" "compile" "debug"
+                "Ehsc" "gfx" "INCLUDE" "LIB" "LINES" "link_dll" "msvc" "net" "out"
+                "raddbg" "release") do (
+        set "%%~a="
     )
 exit /b 0
 
@@ -116,21 +120,21 @@ exit /b 0
 ::-------------------------------
 :Build
 setlocal EnableDelayedExpansion
+    call :Clear
+
     set "_error=0"
-    set "_variables=%*"
     set "_root=%~dp0"
     if "!_root:~-1!"=="\"                               set "_root=!_root:~0,-1!"
 
     :: --- Unpack Arguments -------------------------------------------------------
     set "_variables=%*"
-    set "_variables=%*"
-    for %%a in (!_variables!) do                        set "%%a=1"
+    for %%a in (!_variables!) do                        set "%%~a=1"
     if not "%msvc%"=="1" if not "%clang%"=="1"          set "msvc=1"
     if not "%release%"=="1"                             set "debug=1"
-    if "%debug%"=="1"                                   set "release=0" && echo [debug mode]
-    if "%release%"=="1"                                 set "debug=0" && echo [release mode]
-    if "%msvc%"=="1"                                    set "clang=0" && echo [msvc compile]
-    if "%clang%"=="1"                                   set "msvc=0" && echo [clang compile]
+    if "%debug%"=="1"                                   set "release=0"
+    if "%release%"=="1"                                 set "debug=0"
+    if "%msvc%"=="1"                                    set "clang=0"
+    if "%clang%"=="1"                                   set "msvc=0"
     if "%~1"==""                                        echo [default mode, assuming `raddbg` build] && set raddbg=1
 
     if "!release!"=="1"                                 set "_config=release"
@@ -140,6 +144,8 @@ setlocal EnableDelayedExpansion
     if "!msvc!"=="1"                                    set "_compiler=msvc"
     if "!clang!"=="1"                                   set "_compiler=clang"
     if "!_compiler!"==""                                set "_compiler=msvc"
+
+    echo [!_compiler! compile - !_config! mode]
 
     if not exist "!_root!\build"                        mkdir "!_root!\build"
     if not exist "!_root!\build\!_compiler!"            mkdir "!_root!\build\!_compiler!"
@@ -303,10 +309,12 @@ setlocal EnableDelayedExpansion
     if "!look_at_raddbg!"=="1"              call !compile!                          "!_root!\src\scratch\look_at_raddbg.c"                              !compile_link! !out!"!_build!\look_at_raddbg.exe"
     if errorlevel 1 goto:$BuildError
 
-    if "!mule_main!"=="1"                   call del                                "!_build!\vc*.pdb" "!_build!\mule*.pdb" > nul 2>&1
-    if "!mule_main!"=="1"                   call :Command call !compile_release! !only_compile!   "!_root!\src\mule\mule_inline.cpp" !out!"!_build!\mule_inline.obj"
-    if "!mule_main!"=="1"                   call :Command call !compile_release! !only_compile!   "!_root!\src\mule\mule_o2.cpp" !out!"!_build!\mule_o2.obj"
-    if "!mule_main!"=="1"                   call :Command call !compile_debug!   !EHsc!           "!_root!\src\mule\mule_main.cpp" "!_root!\src\mule\mule_c.c" "!_build!\mule_inline.obj" "!_build!\mule_o2.obj" !compile_link!    !out!"!_build!\mule_main.exe"
+    if "!mule_main!"=="1" (
+                                            call :Command del                                "!_build!\vc*.pdb" "!_build!\mule*.pdb" > nul 2>&1
+                                            call :Command !compile_release! !only_compile!   "!_root!\src\mule\mule_inline.cpp" !out!"!_build!\mule_inline.obj"
+                                            call :Command !compile_release! !only_compile!   "!_root!\src\mule\mule_o2.cpp" !out!"!_build!\mule_o2.obj"
+                                            call :Command !compile_debug!   !EHsc!           "!_root!\src\mule\mule_main.cpp" "!_root!\src\mule\mule_c.c" "!_build!\mule_inline.obj" "!_build!\mule_o2.obj" !compile_link!    !out!"!_build!\mule_main.exe"
+    )
     if errorlevel 1 goto:$BuildError
 
     if "!mule_module!"=="1"                 call :Command !compile!                          "!_root!\src\mule\mule_module.cpp"                                  !compile_link! !link_dll! !out!"!_build!\mule_module.dll"
@@ -329,22 +337,22 @@ setlocal EnableDelayedExpansion
         :$BuildSkipClangOverrides
 
         set _error=%errorlevel%
-        echo ##[error]Failed to build project. Error code: !_error!
+        echo ##[error]Failed to build project. Error code^: '!_error!'
         goto:$BuildDone
 
     :$BuildErrorIgnore
+        echo ##[warning]Ignored known build error for current project. Error code^: '%errorlevel%'
         set "_error=0"
-        echo ##[warning]Ignored known build error for current project.
         goto:$BuildDone
 
     :$BuildDone
         echo ##[endgroup]
-        :: --- Unset ------------------------------------------------------------------
-        for %%a in (!_variables!) do set "%%a=0"
-        call :Clear
-endlocal & exit /b %_error%
+endlocal & (
+    exit /b %_error%
+)
 
 :$Main
+setlocal EnableExtensions
     echo ##[group]%0 %~1 %~2 %~3 %~4 %~5 %~6 %~7 %~8 %~9
     echo ##[command]%0 %~1 %~2 %~3 %~4 %~5 %~6 %~7 %~8 %~9
 
@@ -352,19 +360,22 @@ endlocal & exit /b %_error%
         if "%~1"=="all" goto:$MainBuildAll
         call :Build %*
         if errorlevel 1 goto:$MainError
+        echo ##[info]Build script complete.
         goto:$MainDone
 
     :$MainBuildAll
-        for %%a in ("raddbg" "raddbgi_from_pdb" "raddbgi_from_dwarf" "raddbgi_dump" "raddbgi_breakpad_from_pdb" "ryan_scratch" "cpp_tests" "look_at_raddbg" "mule_main" "mule_module" "mule_hotload") do (
-            call :Build "%%a" %*
+        for %%a in ("raddbg" "raddbgi_from_pdb" "raddbgi_from_dwarf" "raddbgi_dump"
+                    "raddbgi_breakpad_from_pdb" "ryan_scratch" "cpp_tests" "look_at_raddbg"
+                    "mule_main" "mule_module" "mule_hotload") do (
+            call :Build "%%~a" %*
             if errorlevel 1 goto:$MainError
         )
         echo ##[info]Built all projects successfully.
         goto:$MainDone
 
     :$MainError
-        echo ##[error]Failed to build projects. Error code: %errorlevel%
+        echo ##[error]Failed to build one or more projects. Error code: '%errorlevel%'
         goto:$MainDone
 
     :$MainDone
-goto:eof
+endlocal & exit /b 0
