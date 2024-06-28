@@ -2,11 +2,11 @@ name: builds
 
 on:
   push:
-    branches: [main, develop, feature/*]
+    branches: [main, dev, develop, feature/*]
     paths-ignore:
       - "**.md"
   pull_request:
-    branches: [main, develop]
+    branches: [main, dev, develop]
     paths-ignore:
       - "**.md"
 
