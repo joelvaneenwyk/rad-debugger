@@ -4,20 +4,24 @@
 ////////////////////////////////
 //~ rjf: Basic Widgets
 
-internal UI_Signal
-ui_spacer(UI_Size size)
+internal void
+ui_divider(UI_Size size)
 {
   UI_Box *parent = ui_top_parent();
   ui_set_next_pref_size(parent->child_layout_axis, size);
-  UI_Box *box = ui_build_box_from_string(0, str8_lit(""));
-  UI_Signal interact = ui_signal_from_box(box);
-  return interact;
+  ui_set_next_child_layout_axis(parent->child_layout_axis);
+  UI_Box *box = ui_build_box_from_key(0, ui_key_zero());
+  UI_Parent(box) UI_PrefSize(parent->child_layout_axis, ui_pct(1, 0))
+  {
+    ui_build_box_from_key(UI_BoxFlag_DrawSideBottom, ui_key_zero());
+    ui_build_box_from_key(0, ui_key_zero());
+  }
 }
 
 internal UI_Signal
 ui_label(String8 string)
 {
-  UI_Box *box = ui_build_box_from_string(UI_BoxFlag_DrawText, str8_lit(""));
+  UI_Box *box = ui_build_box_from_string(UI_BoxFlag_DrawText, str8_zero());
   ui_box_equip_display_string(box, string);
   UI_Signal interact = ui_signal_from_box(box);
   return interact;
@@ -43,7 +47,7 @@ ui_label_multiline(F32 max, String8 string)
   ui_set_next_child_layout_axis(Axis2_Y);
   ui_set_next_pref_height(ui_children_sum(1));
   UI_Box *box = ui_build_box_from_key(0, ui_key_zero());
-  String8List lines = f_wrapped_string_lines_from_font_size_string_max(scratch.arena, ui_top_font(), ui_top_font_size(), string, max);
+  String8List lines = f_wrapped_string_lines_from_font_size_string_max(scratch.arena, ui_top_font(), ui_top_font_size(), 0, ui_top_tab_size(), string, max);
   for(String8Node *n = lines.first; n != 0; n = n->next)
   {
     ui_label(n->string);
@@ -120,8 +124,6 @@ typedef struct UI_LineEditDrawData UI_LineEditDrawData;
 struct UI_LineEditDrawData
 {
   String8 edited_string;
-  Vec4F32 cursor_color;
-  Vec4F32 select_color;
   TxtPt cursor;
   TxtPt mark;
 };
@@ -131,29 +133,30 @@ internal UI_BOX_CUSTOM_DRAW(ui_line_edit_draw)
   UI_LineEditDrawData *draw_data = (UI_LineEditDrawData *)user_data;
   F_Tag font = box->font;
   F32 font_size = box->font_size;
-  Vec4F32 cursor_color = draw_data->cursor_color;
+  F32 tab_size = box->tab_size;
+  Vec4F32 cursor_color = box->palette->colors[UI_ColorCode_Cursor];
   cursor_color.w *= box->parent->parent->focus_active_t;
-  Vec4F32 select_color = draw_data->select_color;
+  Vec4F32 select_color = box->palette->colors[UI_ColorCode_Selection];
   select_color.w *= (box->parent->parent->focus_active_t*0.2f + 0.8f);
   Vec2F32 text_position = ui_box_text_position(box);
   String8 edited_string = draw_data->edited_string;
   TxtPt cursor = draw_data->cursor;
   TxtPt mark = draw_data->mark;
-  F32 cursor_pixel_off = f_dim_from_tag_size_string(font, font_size, str8_prefix(edited_string, cursor.column-1)).x + font_size/8.f;
-  F32 mark_pixel_off   = f_dim_from_tag_size_string(font, font_size, str8_prefix(edited_string, mark.column-1)).x + font_size/8.f;
+  F32 cursor_pixel_off = f_dim_from_tag_size_string(font, font_size, 0, tab_size, str8_prefix(edited_string, cursor.column-1)).x;
+  F32 mark_pixel_off   = f_dim_from_tag_size_string(font, font_size, 0, tab_size, str8_prefix(edited_string, mark.column-1)).x;
   F32 cursor_thickness = ClampBot(4.f, font_size/6.f);
   Rng2F32 cursor_rect =
   {
-    text_position.x-cursor_thickness*0.40f + cursor_pixel_off,
+    text_position.x + cursor_pixel_off - cursor_thickness*0.50f,
     box->rect.y0+4.f,
-    text_position.x+cursor_thickness*0.60f + cursor_pixel_off,
+    text_position.x + cursor_pixel_off + cursor_thickness*0.50f,
     box->rect.y1-4.f,
   };
   Rng2F32 mark_rect =
   {
-    text_position.x-cursor_thickness*0.40f + mark_pixel_off,
+    text_position.x + mark_pixel_off - cursor_thickness*0.50f,
     box->rect.y0+2.f,
-    text_position.x+cursor_thickness*0.60f + mark_pixel_off,
+    text_position.x + mark_pixel_off + cursor_thickness*0.50f,
     box->rect.y1-2.f,
   };
   Rng2F32 select_rect = union_2f32(cursor_rect, mark_rect);
@@ -193,32 +196,32 @@ ui_line_edit(TxtPt *cursor, TxtPt *mark, U8 *edit_buffer, U64 edit_buffer_size, 
   if(is_focus_active)
   {
     Temp scratch = scratch_begin(0, 0);
-    UI_NavActionList *nav_actions = ui_nav_actions();
-    for(UI_NavActionNode *n = nav_actions->first, *next = 0; n != 0; n = next)
+    UI_EventList *events = ui_events();
+    for(UI_EventNode *n = events->first, *next = 0; n != 0; n = next)
     {
       String8 edit_string = str8(edit_buffer, edit_string_size_out[0]);
       next = n->next;
       
       // rjf: do not consume anything that doesn't fit a single-line's operations
-      if(n->v.delta.y != 0)
+      if((n->v.kind != UI_EventKind_Edit && n->v.kind != UI_EventKind_Navigate && n->v.kind != UI_EventKind_Text) || n->v.delta_2s32.y != 0)
       {
         continue;
       }
       
       // rjf: map this action to an op
-      UI_NavTxtOp op = ui_nav_single_line_txt_op_from_action(scratch.arena, n->v, edit_string, *cursor, *mark);
+      UI_TxtOp op = ui_single_line_txt_op_from_event(scratch.arena, &n->v, edit_string, *cursor, *mark);
       
       // rjf: perform replace range
       if(!txt_pt_match(op.range.min, op.range.max) || op.replace.size != 0)
       {
-        String8 new_string = ui_nav_push_string_replace_range(scratch.arena, edit_string, r1s64(op.range.min.column, op.range.max.column), op.replace);
+        String8 new_string = ui_push_string_replace_range(scratch.arena, edit_string, r1s64(op.range.min.column, op.range.max.column), op.replace);
         new_string.size = Min(edit_buffer_size, new_string.size);
         MemoryCopy(edit_buffer, new_string.str, new_string.size);
         edit_string_size_out[0] = new_string.size;
       }
       
       // rjf: perform copy
-      if(op.flags & UI_NavTxtOpFlag_Copy)
+      if(op.flags & UI_TxtOpFlag_Copy)
       {
         os_set_clipboard_text(op.copy);
       }
@@ -229,7 +232,7 @@ ui_line_edit(TxtPt *cursor, TxtPt *mark, U8 *edit_buffer, U64 edit_buffer_size, 
       
       // rjf: consume event
       {
-        ui_nav_eat_action_node(nav_actions, n);
+        ui_eat_event(events, n);
         changes_made = 1;
       }
     }
@@ -253,19 +256,17 @@ ui_line_edit(TxtPt *cursor, TxtPt *mark, U8 *edit_buffer, U64 edit_buffer_size, 
     }
     else
     {
-      F32 total_text_width = f_dim_from_tag_size_string(ui_top_font(), ui_top_font_size(), edit_string).x;
+      F32 total_text_width = f_dim_from_tag_size_string(ui_top_font(), ui_top_font_size(), 0, ui_top_tab_size(), edit_string).x;
       ui_set_next_pref_width(ui_px(total_text_width+ui_top_font_size()*5, 1.f));
       UI_Box *editstr_box = ui_build_box_from_stringf(UI_BoxFlag_DrawText|UI_BoxFlag_DisableTextTrunc, "###editstr");
       UI_LineEditDrawData *draw_data = push_array(ui_build_arena(), UI_LineEditDrawData, 1);
       draw_data->edited_string = push_str8_copy(ui_build_arena(), edit_string);
       draw_data->cursor = *cursor;
       draw_data->mark = *mark;
-      draw_data->cursor_color = ui_top_text_cursor_color();
-      draw_data->select_color = ui_top_text_select_color();
       ui_box_equip_display_string(editstr_box, edit_string);
       ui_box_equip_custom_draw(editstr_box, ui_line_edit_draw, draw_data);
       mouse_pt = txt_pt(1, 1+ui_box_char_pos_from_xy(editstr_box, ui_mouse()));
-      cursor_off = f_dim_from_tag_size_string(ui_top_font(), ui_top_font_size(), str8_prefix(edit_string, cursor->column-1)).x;
+      cursor_off = f_dim_from_tag_size_string(ui_top_font(), ui_top_font_size(), 0, ui_top_tab_size(), str8_prefix(edit_string, cursor->column-1)).x;
     }
   }
   
@@ -331,38 +332,76 @@ ui_line_editf(TxtPt *cursor, TxtPt *mark, U8 *edit_buffer, U64 edit_buffer_size,
 }
 
 ////////////////////////////////
-//~ rjf: Special Buttons
+//~ rjf: Images
 
-internal UI_Signal
-ui_close_button(String8 string)
+typedef struct UI_ImageDrawData UI_ImageDrawData;
+struct UI_ImageDrawData
 {
-  ui_set_next_background_color(v4f32(0.6f, 0.2f, 0.1f, 1.f));
-  ui_set_next_text_color(v4f32(1, 1, 1, 1));
-  ui_set_next_hover_cursor(OS_Cursor_HandPoint);
-  ui_set_next_text_alignment(UI_TextAlign_Center);
-  UI_Box *box = ui_build_box_from_string(UI_BoxFlag_Clickable|
-                                         UI_BoxFlag_DrawBackground|
-                                         UI_BoxFlag_DrawBorder|
-                                         UI_BoxFlag_DrawText|
-                                         UI_BoxFlag_DrawHotEffects|
-                                         UI_BoxFlag_DrawActiveEffects,
-                                         string);
-  UI_Signal interact = ui_signal_from_box(box);
-  return interact;
+  R_Handle texture;
+  R_Tex2DSampleKind sample_kind;
+  Rng2F32 region;
+  Vec4F32 tint;
+  F32 blur;
+};
+
+internal UI_BOX_CUSTOM_DRAW(ui_image_draw)
+{
+  UI_ImageDrawData *draw_data = (UI_ImageDrawData *)user_data;
+  if(r_handle_match(draw_data->texture, r_handle_zero()))
+  {
+    R_Rect2DInst *inst = d_rect(box->rect, v4f32(0, 0, 0, 0), 0, 0, 1.f);
+    MemoryCopyArray(inst->corner_radii, box->corner_radii);
+  }
+  else D_Tex2DSampleKindScope(draw_data->sample_kind)
+  {
+    R_Rect2DInst *inst = d_img(box->rect, draw_data->region, draw_data->texture, draw_data->tint, 0, 0, 0);
+    MemoryCopyArray(inst->corner_radii, box->corner_radii);
+  }
+  if(draw_data->blur > 0.01f)
+  {
+    Rng2F32 clip = box->rect;
+    for(UI_Box *b = box->parent; !ui_box_is_nil(b); b = b->parent)
+    {
+      if(b->flags & UI_BoxFlag_Clip)
+      {
+        clip = intersect_2f32(b->rect, clip);
+      }
+    }
+    R_PassParams_Blur *blur = d_blur(intersect_2f32(clip, box->rect), draw_data->blur, 0);
+    MemoryCopyArray(blur->corner_radii, box->corner_radii);
+  }
 }
 
 internal UI_Signal
-ui_close_buttonf(char *fmt, ...)
+ui_image(R_Handle texture, R_Tex2DSampleKind sample_kind, Rng2F32 region, Vec4F32 tint, F32 blur, String8 string)
+{
+  UI_Box *box = ui_build_box_from_string(0, string);
+  UI_ImageDrawData *draw_data = push_array(ui_build_arena(), UI_ImageDrawData, 1);
+  draw_data->texture = texture;
+  draw_data->sample_kind = sample_kind;
+  draw_data->region = region;
+  draw_data->tint = tint;
+  draw_data->blur = blur;
+  ui_box_equip_custom_draw(box, ui_image_draw, draw_data);
+  UI_Signal sig = ui_signal_from_box(box);
+  return sig;
+}
+
+internal UI_Signal
+ui_imagef(R_Handle texture, R_Tex2DSampleKind sample_kind, Rng2F32 region, Vec4F32 tint, F32 blur, char *fmt, ...)
 {
   Temp scratch = scratch_begin(0, 0);
   va_list args;
   va_start(args, fmt);
   String8 string = push_str8fv(scratch.arena, fmt, args);
   va_end(args);
-  UI_Signal sig = ui_close_button(string);
+  UI_Signal result = ui_image(texture, sample_kind, region, tint, blur, string);
   scratch_end(scratch);
-  return sig;
+  return result;
 }
+
+////////////////////////////////
+//~ rjf: Special Buttons
 
 internal UI_Signal
 ui_expander(B32 is_expanded, String8 string)
@@ -443,7 +482,8 @@ ui_do_color_tooltip_hsv(Vec3F32 hsv)
   {
     UI_PrefWidth(ui_em(22.f, 1.f)) UI_PrefHeight(ui_em(6.f, 1.f)) UI_Row UI_Padding(ui_pct(1, 0))
     {
-      UI_BackgroundColor(v4f32(rgb.x, rgb.y, rgb.z, 1)) UI_CornerRadius(4.f)
+      UI_Palette(ui_build_palette(ui_top_palette(), .background = v4f32(rgb.x, rgb.y, rgb.z, 1.f)))
+        UI_CornerRadius(4.f)
         UI_PrefWidth(ui_em(6.f, 1.f)) UI_PrefHeight(ui_em(6.f, 1.f))
         ui_build_box_from_string(UI_BoxFlag_DrawBorder|UI_BoxFlag_DrawBackground, str8_lit(""));
     }
@@ -481,7 +521,8 @@ ui_do_color_tooltip_hsva(Vec4F32 hsva)
   {
     UI_PrefWidth(ui_em(22.f, 1.f)) UI_PrefHeight(ui_em(6.f, 1.f)) UI_Row UI_Padding(ui_pct(1, 0))
     {
-      UI_BackgroundColor(rgba) UI_CornerRadius(4.f)
+      UI_Palette(ui_build_palette(ui_top_palette(), .background = rgba))
+        UI_CornerRadius(4.f)
         UI_PrefWidth(ui_em(6.f, 1.f)) UI_PrefHeight(ui_em(6.f, 1.f))
         ui_build_box_from_string(UI_BoxFlag_DrawBorder|UI_BoxFlag_DrawBackground, str8_lit(""));
     }
@@ -573,6 +614,18 @@ ui_sat_val_picker(F32 hue, F32 *out_sat, F32 *out_val, String8 string)
     *out_sat = Clamp(0, *out_sat, 1);
     *out_val = Clamp(0, *out_val, 1);
     ui_do_color_tooltip_hsv(v3f32(hue, *out_sat, *out_val));
+    if(ui_pressed(sig))
+    {
+      Vec2F32 data = v2f32(*out_sat, *out_val);
+      ui_store_drag_struct(&data);
+    }
+    if(ui_slot_press(UI_EventActionSlot_Cancel))
+    {
+      Vec2F32 data = *ui_get_drag_struct(Vec2F32);
+      *out_sat = data.x;
+      *out_val = data.y;
+      ui_kill_action();
+    }
   }
   
   // rjf: fill draw data
@@ -668,6 +721,15 @@ ui_hue_picker(F32 *out_hue, F32 sat, F32 val, String8 string)
     *out_hue = (ui_mouse().y - box->rect.y0) / dim.y;
     *out_hue = Clamp(0, *out_hue, 1);
     ui_do_color_tooltip_hsv(v3f32(*out_hue, sat, val));
+    if(ui_pressed(sig))
+    {
+      ui_store_drag_struct(out_hue);
+    }
+    if(ui_slot_press(UI_EventActionSlot_Cancel))
+    {
+      *out_hue = *ui_get_drag_struct(F32);
+      ui_kill_action();
+    }
   }
   
   // rjf: fill draw data
@@ -746,6 +808,15 @@ ui_alpha_picker(F32 *out_alpha, String8 string)
     F32 drag_pct = (ui_mouse().y - box->rect.y0) / dim.y; 
     drag_pct = Clamp(0, drag_pct, 1);
     *out_alpha = 1-drag_pct;
+    if(ui_pressed(sig))
+    {
+      ui_store_drag_struct(out_alpha);
+    }
+    if(ui_slot_press(UI_EventActionSlot_Cancel))
+    {
+      *out_alpha = *ui_get_drag_struct(F32);
+      ui_kill_action();
+    }
   }
   
   // rjf: fill draw data
@@ -772,41 +843,43 @@ ui_alpha_pickerf(F32 *out_alpha, char *fmt, ...)
 ////////////////////////////////
 //~ rjf: Simple Layout Widgets
 
-internal UI_Signal ui_row_begin(void)    { return ui_named_row_begin(str8_lit("")); }
-internal void      ui_row_end(void)      { ui_named_row_end(); }
-internal UI_Signal ui_column_begin(void) { return ui_named_column_begin(str8_lit("")); }
-internal void      ui_column_end(void)   { ui_named_column_end(); }
+internal UI_Box *ui_row_begin(void)    { return ui_named_row_begin(str8_lit("")); }
+internal UI_Signal ui_row_end(void)    { return ui_named_row_end(); }
+internal UI_Box *ui_column_begin(void) { return ui_named_column_begin(str8_lit("")); }
+internal UI_Signal ui_column_end(void) { return ui_named_column_end(); }
 
-internal UI_Signal
+internal UI_Box *
 ui_named_row_begin(String8 string)
 {
   ui_set_next_child_layout_axis(Axis2_X);
   UI_Box *box = ui_build_box_from_string(0, string);
   ui_push_parent(box);
-  UI_Signal result = ui_signal_from_box(box);
-  return result;
-}
-
-internal void
-ui_named_row_end(void)
-{
-  ui_pop_parent();
+  return box;
 }
 
 internal UI_Signal
+ui_named_row_end(void)
+{
+  UI_Box *box = ui_pop_parent();
+  UI_Signal sig = ui_signal_from_box(box);
+  return sig;
+}
+
+internal UI_Box *
 ui_named_column_begin(String8 string)
 {
   ui_set_next_child_layout_axis(Axis2_Y);
   UI_Box *box = ui_build_box_from_string(0, string);
   ui_push_parent(box);
-  UI_Signal result = ui_signal_from_box(box);
-  return result;
+  return box;
 }
 
-internal void
+internal UI_Signal
 ui_named_column_end(void)
 {
-  ui_pop_parent();
+  UI_Box *box = ui_pop_parent();
+  UI_Signal sig = ui_signal_from_box(box);
+  return sig;
 }
 
 ////////////////////////////////
@@ -837,11 +910,13 @@ ui_pane_beginf(Rng2F32 rect, char *fmt, ...)
   return box;
 }
 
-internal void
+internal UI_Signal
 ui_pane_end(void)
 {
   ui_pop_pref_width();
-  ui_pop_parent();
+  UI_Box *box = ui_pop_parent();
+  UI_Signal sig = ui_signal_from_box(box);
+  return sig;
 }
 
 ////////////////////////////////
@@ -1027,7 +1102,6 @@ ui_table_vector_end(void)
 internal UI_Box *
 ui_table_cell_begin(void)
 {
-  UI_Box *vector = ui_top_parent();
   U64 column_idx = ui_ts_cell_idx;
   F32 width_pct = column_idx < ui_ts_col_pct_count ? ui_ts_col_pcts_stable[column_idx] : 1.f;
   return ui_table_cell_sized_begin(ui_pct(width_pct, 0));
@@ -1140,6 +1214,8 @@ ui_scroll_list_item_from_row(UI_ScrollListRowBlockArray *blocks, U64 row)
 internal UI_ScrollPt
 ui_scroll_bar(Axis2 axis, UI_Size off_axis_size, UI_ScrollPt pt, Rng1S64 idx_range, S64 view_num_indices)
 {
+  ui_push_palette(ui_state->widget_palette_info.scrollbar_palette);
+  
   //- rjf: unpack
   S64 idx_range_dim = Max(dim_1s64(idx_range), 1);
   
@@ -1257,6 +1333,8 @@ ui_scroll_bar(Axis2 axis, UI_Size off_axis_size, UI_ScrollPt pt, Rng1S64 idx_ran
       ui_scroll_pt_target_idx(&new_pt, new_idx);
     }
   }
+  
+  ui_pop_palette();
   return new_pt;
 }
 
@@ -1266,7 +1344,7 @@ thread_static Vec2F32 ui_scroll_list_dim_px = {0};
 thread_static Rng1S64 ui_scroll_list_scroll_idx_rng = {0};
 
 internal void
-ui_scroll_list_begin(UI_ScrollListParams *params, UI_ScrollPt *scroll_pt, Vec2S64 *cursor_out, Rng1S64 *visible_row_range_out, UI_ScrollListSignal *signal_out)
+ui_scroll_list_begin(UI_ScrollListParams *params, UI_ScrollPt *scroll_pt, Vec2S64 *cursor_out, Vec2S64 *mark_out, Rng1S64 *visible_row_range_out, UI_ScrollListSignal *signal_out)
 {
   //- rjf: unpack arguments
   Rng1S64 scroll_row_idx_range = r1s64(params->item_range.min, ClampBot(params->item_range.min, params->item_range.max-1));
@@ -1276,27 +1354,28 @@ ui_scroll_list_begin(UI_ScrollListParams *params, UI_ScrollPt *scroll_pt, Vec2S6
   B32 moved = 0;
   if(params->flags & UI_ScrollListFlag_Nav && cursor_out != 0 && ui_is_focus_active())
   {
-    UI_NavActionList *nav_actions = ui_nav_actions();
+    UI_EventList *events = ui_events();
     Vec2S64 cursor = *cursor_out;
-    for(UI_NavActionNode *n = nav_actions->first, *next = 0; n != 0; n = next)
+    Vec2S64 mark = mark_out ? *mark_out : cursor;
+    for(UI_EventNode *n = events->first, *next = 0; n != 0; n = next)
     {
       next = n->next;
-      UI_NavAction *action = &n->v;
-      if((action->delta.x == 0 && action->delta.y == 0) ||
-         action->flags & (UI_NavActionFlag_KeepMark|UI_NavActionFlag_Delete))
+      UI_Event *evt = &n->v;
+      if((evt->delta_2s32.x == 0 && evt->delta_2s32.y == 0) ||
+         evt->flags & UI_EventFlag_Delete)
       {
         continue;
       }
-      ui_nav_eat_action_node(nav_actions, n);
+      ui_eat_event(events, n);
       moved = 1;
-      switch(action->delta_unit)
+      switch(evt->delta_unit)
       {
         default:{moved = 0;}break;
-        case UI_NavDeltaUnit_Element:
+        case UI_EventDeltaUnit_Char:
         {
           for(Axis2 axis = (Axis2)0; axis < Axis2_COUNT; axis = (Axis2)(axis+1))
           {
-            cursor.v[axis] += action->delta.v[axis];
+            cursor.v[axis] += evt->delta_2s32.v[axis];
             if(cursor.v[axis] < params->cursor_range.min.v[axis])
             {
               cursor.v[axis] = params->cursor_range.max.v[axis];
@@ -1308,25 +1387,34 @@ ui_scroll_list_begin(UI_ScrollListParams *params, UI_ScrollPt *scroll_pt, Vec2S6
             cursor.v[axis] = clamp_1s64(r1s64(params->cursor_range.min.v[axis], params->cursor_range.max.v[axis]), cursor.v[axis]);
           }
         }break;
-        case UI_NavDeltaUnit_Chunk:
-        case UI_NavDeltaUnit_Whole:
+        case UI_EventDeltaUnit_Word:
+        case UI_EventDeltaUnit_Line:
+        case UI_EventDeltaUnit_Page:
         {
-          cursor.x  = (action->delta.x>0 ? params->cursor_range.max.x : action->delta.x<0 ? params->cursor_range.min.x + !!params->cursor_min_is_empty_selection[Axis2_X] : cursor.x);
-          cursor.y += ((action->delta.y>0 ? +(num_possible_visible_rows-3) : action->delta.y<0 ? -(num_possible_visible_rows-3) : 0));
+          cursor.x  = (evt->delta_2s32.x>0 ? params->cursor_range.max.x : evt->delta_2s32.x<0 ? params->cursor_range.min.x + !!params->cursor_min_is_empty_selection[Axis2_X] : cursor.x);
+          cursor.y += ((evt->delta_2s32.y>0 ? +(num_possible_visible_rows-3) : evt->delta_2s32.y<0 ? -(num_possible_visible_rows-3) : 0));
           cursor.y = clamp_1s64(r1s64(params->cursor_range.min.y + !!params->cursor_min_is_empty_selection[Axis2_Y], params->cursor_range.max.y), cursor.y);
         }break;
-        case UI_NavDeltaUnit_EndPoint:
+        case UI_EventDeltaUnit_Whole:
         {
           for(Axis2 axis = (Axis2)0; axis < Axis2_COUNT; axis = (Axis2)(axis+1))
           {
-            cursor.v[axis] = (action->delta.v[axis]>0 ? params->cursor_range.max.v[axis] : action->delta.v[axis]<0 ? params->cursor_range.min.v[axis] + !!params->cursor_min_is_empty_selection[axis] : cursor.v[axis]);
+            cursor.v[axis] = (evt->delta_2s32.v[axis]>0 ? params->cursor_range.max.v[axis] : evt->delta_2s32.v[axis]<0 ? params->cursor_range.min.v[axis] + !!params->cursor_min_is_empty_selection[axis] : cursor.v[axis]);
           }
         }break;
+      }
+      if(!(evt->flags & UI_EventFlag_KeepMark))
+      {
+        mark = cursor;
       }
     }
     if(moved)
     {
       *cursor_out = cursor;
+      if(mark_out)
+      {
+        *mark_out = mark;
+      }
     }
   }
   

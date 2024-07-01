@@ -9,7 +9,7 @@
 typedef enum DF_CfgSrc
 {
 DF_CfgSrc_User,
-DF_CfgSrc_Profile,
+DF_CfgSrc_Project,
 DF_CfgSrc_CommandLine,
 DF_CfgSrc_Transient,
 DF_CfgSrc_COUNT,
@@ -22,9 +22,7 @@ DF_EntityKind_Root,
 DF_EntityKind_Machine,
 DF_EntityKind_File,
 DF_EntityKind_OverrideFileLink,
-DF_EntityKind_PendingFileChange,
-DF_EntityKind_DiagLog,
-DF_EntityKind_FlashMarker,
+DF_EntityKind_AutoViewRule,
 DF_EntityKind_WatchPin,
 DF_EntityKind_Breakpoint,
 DF_EntityKind_Condition,
@@ -33,27 +31,19 @@ DF_EntityKind_Executable,
 DF_EntityKind_Arguments,
 DF_EntityKind_ExecutionPath,
 DF_EntityKind_EntryPointName,
+DF_EntityKind_RecentProject,
 DF_EntityKind_Source,
 DF_EntityKind_Dest,
-DF_EntityKind_CtrlRequest,
 DF_EntityKind_Process,
 DF_EntityKind_Thread,
 DF_EntityKind_Module,
-DF_EntityKind_DebugInfoOverride,
 DF_EntityKind_PendingThreadName,
+DF_EntityKind_DebugInfoPath,
 DF_EntityKind_ConversionTask,
 DF_EntityKind_ConversionFail,
 DF_EntityKind_EndedProcess,
 DF_EntityKind_COUNT,
 } DF_EntityKind;
-
-typedef enum DF_NameKind
-{
-DF_NameKind_Null,
-DF_NameKind_EntityName,
-DF_NameKind_EntityKindName,
-DF_NameKind_COUNT,
-} DF_NameKind;
 
 typedef enum DF_CoreCmdKind
 {
@@ -61,6 +51,7 @@ DF_CoreCmdKind_Null,
 DF_CoreCmdKind_Exit,
 DF_CoreCmdKind_RunCommand,
 DF_CoreCmdKind_Error,
+DF_CoreCmdKind_OSEvent,
 DF_CoreCmdKind_LaunchAndRun,
 DF_CoreCmdKind_LaunchAndInit,
 DF_CoreCmdKind_Kill,
@@ -83,8 +74,6 @@ DF_CoreCmdKind_StepInto,
 DF_CoreCmdKind_StepOver,
 DF_CoreCmdKind_RunToCursor,
 DF_CoreCmdKind_SetNextStatement,
-DF_CoreCmdKind_EnableSoloSteppingMode,
-DF_CoreCmdKind_DisableSoloSteppingMode,
 DF_CoreCmdKind_SelectThread,
 DF_CoreCmdKind_SelectThreadWindow,
 DF_CoreCmdKind_SelectThreadView,
@@ -109,8 +98,12 @@ DF_CoreCmdKind_ToggleFullscreen,
 DF_CoreCmdKind_ConfirmAccept,
 DF_CoreCmdKind_ConfirmCancel,
 DF_CoreCmdKind_ResetToDefaultPanels,
+DF_CoreCmdKind_ResetToCompactPanels,
+DF_CoreCmdKind_NewPanelLeft,
+DF_CoreCmdKind_NewPanelUp,
 DF_CoreCmdKind_NewPanelRight,
 DF_CoreCmdKind_NewPanelDown,
+DF_CoreCmdKind_SplitPanel,
 DF_CoreCmdKind_RotatePanelColumns,
 DF_CoreCmdKind_NextPanel,
 DF_CoreCmdKind_PrevPanel,
@@ -135,19 +128,25 @@ DF_CoreCmdKind_TabBarTop,
 DF_CoreCmdKind_TabBarBottom,
 DF_CoreCmdKind_SetCurrentPath,
 DF_CoreCmdKind_Open,
-DF_CoreCmdKind_Reload,
-DF_CoreCmdKind_ReloadActive,
 DF_CoreCmdKind_Switch,
 DF_CoreCmdKind_SwitchToPartnerFile,
+DF_CoreCmdKind_GoToDisassembly,
+DF_CoreCmdKind_GoToSource,
 DF_CoreCmdKind_SetFileOverrideLinkSrc,
 DF_CoreCmdKind_SetFileOverrideLinkDst,
 DF_CoreCmdKind_SetFileReplacementPath,
+DF_CoreCmdKind_SetAutoViewRuleType,
+DF_CoreCmdKind_SetAutoViewRuleViewRule,
 DF_CoreCmdKind_OpenUser,
-DF_CoreCmdKind_OpenProfile,
+DF_CoreCmdKind_OpenProject,
+DF_CoreCmdKind_OpenRecentProject,
 DF_CoreCmdKind_ApplyUserData,
-DF_CoreCmdKind_ApplyProfileData,
+DF_CoreCmdKind_ApplyProjectData,
 DF_CoreCmdKind_WriteUserData,
-DF_CoreCmdKind_WriteProfileData,
+DF_CoreCmdKind_WriteProjectData,
+DF_CoreCmdKind_Edit,
+DF_CoreCmdKind_Accept,
+DF_CoreCmdKind_Cancel,
 DF_CoreCmdKind_MoveLeft,
 DF_CoreCmdKind_MoveRight,
 DF_CoreCmdKind_MoveUp,
@@ -172,6 +171,8 @@ DF_CoreCmdKind_MoveUpPageSelect,
 DF_CoreCmdKind_MoveDownPageSelect,
 DF_CoreCmdKind_MoveUpWholeSelect,
 DF_CoreCmdKind_MoveDownWholeSelect,
+DF_CoreCmdKind_MoveUpReorder,
+DF_CoreCmdKind_MoveDownReorder,
 DF_CoreCmdKind_MoveHome,
 DF_CoreCmdKind_MoveEnd,
 DF_CoreCmdKind_MoveHomeSelect,
@@ -199,6 +200,7 @@ DF_CoreCmdKind_GoToName,
 DF_CoreCmdKind_GoToNameAtCursor,
 DF_CoreCmdKind_ToggleWatchExpression,
 DF_CoreCmdKind_ToggleWatchExpressionAtCursor,
+DF_CoreCmdKind_ToggleWatchExpressionAtMouse,
 DF_CoreCmdKind_SetColumns,
 DF_CoreCmdKind_ToggleAddressVisibility,
 DF_CoreCmdKind_ToggleCodeBytesVisibility,
@@ -234,10 +236,12 @@ DF_CoreCmdKind_FindCodeLocation,
 DF_CoreCmdKind_Filter,
 DF_CoreCmdKind_ApplyFilter,
 DF_CoreCmdKind_ClearFilter,
+DF_CoreCmdKind_GettingStarted,
 DF_CoreCmdKind_Commands,
 DF_CoreCmdKind_Target,
 DF_CoreCmdKind_Targets,
 DF_CoreCmdKind_FilePathMap,
+DF_CoreCmdKind_AutoViewRules,
 DF_CoreCmdKind_Scheduler,
 DF_CoreCmdKind_CallStack,
 DF_CoreCmdKind_Modules,
@@ -256,13 +260,14 @@ DF_CoreCmdKind_Disassembly,
 DF_CoreCmdKind_Breakpoints,
 DF_CoreCmdKind_WatchPins,
 DF_CoreCmdKind_ExceptionFilters,
-DF_CoreCmdKind_Theme,
+DF_CoreCmdKind_Settings,
 DF_CoreCmdKind_PickFile,
 DF_CoreCmdKind_PickFolder,
 DF_CoreCmdKind_PickFileOrFolder,
 DF_CoreCmdKind_CompleteQuery,
 DF_CoreCmdKind_CancelQuery,
 DF_CoreCmdKind_ToggleDevMenu,
+DF_CoreCmdKind_LogMarker,
 DF_CoreCmdKind_COUNT,
 } DF_CoreCmdKind;
 
@@ -344,6 +349,7 @@ typedef enum DF_CoreViewRuleKind
 {
 DF_CoreViewRuleKind_Null,
 DF_CoreViewRuleKind_Array,
+DF_CoreViewRuleKind_Slice,
 DF_CoreViewRuleKind_List,
 DF_CoreViewRuleKind_ByteSwap,
 DF_CoreViewRuleKind_BaseDec,
@@ -356,6 +362,7 @@ DF_CoreViewRuleKind_NoAddr,
 DF_CoreViewRuleKind_RGBA,
 DF_CoreViewRuleKind_Text,
 DF_CoreViewRuleKind_Disasm,
+DF_CoreViewRuleKind_Graph,
 DF_CoreViewRuleKind_Bitmap,
 DF_CoreViewRuleKind_Geo,
 DF_CoreViewRuleKind_COUNT,
@@ -376,12 +383,17 @@ DF_CmdParamSlot_FilePath,
 DF_CmdParamSlot_TextPoint,
 DF_CmdParamSlot_CmdSpec,
 DF_CmdParamSlot_ViewSpec,
+DF_CmdParamSlot_CfgNode,
+DF_CmdParamSlot_OSEvent,
 DF_CmdParamSlot_VirtualAddr,
 DF_CmdParamSlot_VirtualOff,
 DF_CmdParamSlot_Index,
 DF_CmdParamSlot_ID,
 DF_CmdParamSlot_PreferDisassembly,
 DF_CmdParamSlot_ForceConfirm,
+DF_CmdParamSlot_Dir2,
+DF_CmdParamSlot_BaseUnwindIndex,
+DF_CmdParamSlot_InlineUnwindIndex,
 DF_CmdParamSlot_COUNT,
 } DF_CmdParamSlot;
 
@@ -401,15 +413,21 @@ String8 file_path;
 TxtPt text_point;
 struct DF_CmdSpec * cmd_spec;
 struct DF_ViewSpec * view_spec;
+struct DF_CfgNode * cfg_node;
+struct OS_Event * os_event;
 U64 vaddr;
 U64 voff;
 U64 index;
 U64 id;
 B32 prefer_dasm;
 B32 force_confirm;
+Dir2 dir2;
+U64 base_unwind_index;
+U64 inline_unwind_index;
 };
 
 DF_CORE_VIEW_RULE_EVAL_RESOLUTION_FUNCTION_DEF(array);
+DF_CORE_VIEW_RULE_EVAL_RESOLUTION_FUNCTION_DEF(slice);
 DF_CORE_VIEW_RULE_EVAL_RESOLUTION_FUNCTION_DEF(bswap);
 DF_CORE_VIEW_RULE_VIZ_BLOCK_PROD_FUNCTION_DEF(list);
 DF_CORE_VIEW_RULE_VIZ_BLOCK_PROD_FUNCTION_DEF(only);
@@ -417,6 +435,7 @@ DF_CORE_VIEW_RULE_VIZ_BLOCK_PROD_FUNCTION_DEF(omit);
 DF_CORE_VIEW_RULE_VIZ_BLOCK_PROD_FUNCTION_DEF(rgba);
 DF_CORE_VIEW_RULE_VIZ_BLOCK_PROD_FUNCTION_DEF(text);
 DF_CORE_VIEW_RULE_VIZ_BLOCK_PROD_FUNCTION_DEF(disasm);
+DF_CORE_VIEW_RULE_VIZ_BLOCK_PROD_FUNCTION_DEF(graph);
 DF_CORE_VIEW_RULE_VIZ_BLOCK_PROD_FUNCTION_DEF(bitmap);
 DF_CORE_VIEW_RULE_VIZ_BLOCK_PROD_FUNCTION_DEF(geo);
 
@@ -1516,17 +1535,18 @@ struct {B32 *value_ptr; String8 name;} DEV_toggle_table[] =
 {&DEV_updating_indicator, str8_lit_comp("updating_indicator")},
 };
 C_LINKAGE_BEGIN
-extern Rng1U64 df_g_cmd_param_slot_range_table[19];
-extern DF_IconKind df_g_entity_kind_icon_kind_table[27];
-extern String8 df_g_entity_kind_display_string_table[27];
-extern String8 df_g_entity_kind_name_label_table[27];
-extern DF_EntityKindFlags df_g_entity_kind_flags_table[27];
-extern DF_EntityOpFlags df_g_entity_kind_op_flags_table[27];
+extern Rng1U64 df_g_cmd_param_slot_range_table[24];
+extern DF_IconKind df_g_entity_kind_icon_kind_table[25];
+extern String8 df_g_entity_kind_display_string_table[25];
+extern String8 df_g_entity_kind_name_label_table[25];
+extern DF_EntityKindFlags df_g_entity_kind_flags_table[25];
+extern DF_EntityOpFlags df_g_entity_kind_op_flags_table[25];
 extern String8 df_g_cfg_src_string_table[4];
 extern DF_CoreCmdKind df_g_cfg_src_load_cmd_kind_table[4];
 extern DF_CoreCmdKind df_g_cfg_src_write_cmd_kind_table[4];
 extern DF_CoreCmdKind df_g_cfg_src_apply_cmd_kind_table[4];
 extern String8 df_g_icon_kind_text_table[69];
+
 C_LINKAGE_END
 
 #endif // DF_CORE_META_H

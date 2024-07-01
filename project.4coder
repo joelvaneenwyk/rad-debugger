@@ -47,7 +47,8 @@ commands =
 {
   .rjf_f1 =
   {
-    .win = "build ryan_scratch",
+    //.win = "build rdi_from_pdb rdi_dump && pushd build && rdi_from_pdb --pdb:mule_main.pdb --out:mule_main.rdi && rdi_dump mule_main.rdi > mule_main.dump && popd",
+    .win = "build raddbg telemetry",
     .linux = "",
     .out = "*compilation*",
     .footer_panel = true,
@@ -56,7 +57,7 @@ commands =
   },
   .rjf_f2 =
   {
-    .win = "build raddbgi_from_pdb telemetry release",
+    .win = "build rdi_from_pdb rdi_dump && pushd build && rdi_from_pdb --pdb:mule_main.pdb --out:mule_main.rdi && rdi_dump mule_main.rdi > mule_main.dump && popd",
     .linux = "",
     .out = "*compilation*",
     .footer_panel = true,
@@ -65,7 +66,7 @@ commands =
   },
   .rjf_f3 =
   {
-    .win = "pushd build && raddbg.exe --user:local_dev.raddbg_user --profile:local_dev.raddbg_profile && popd",
+    .win = "pushd build && raddbg.exe --user:local_dev.raddbg_user --project:local_dev.raddbg_project && popd",
     .linux = "",
     .out = "*compilation*",
     .footer_panel = true,
@@ -74,7 +75,7 @@ commands =
   },
   .rjf_f4 =
   {
-    .win = "build raddbgi_from_pdb release telemetry && pushd build && raddbgi_from_pdb.exe --exe:UnrealEditorFortnite.exe --pdb:UnrealEditorFortnite.pdb --out:UnrealEditorFortnite.raddbgi --capture && popd",
+    .win = "build rdi_from_pdb release telemetry && pushd build && rdi_from_pdb.exe --pdb:UnrealEditorFortnite.pdb --out:profile.rdi --capture && popd",
     .linux = "",
     .out = "*compilation*",
     .footer_panel = true,
@@ -83,7 +84,7 @@ commands =
   },
   .rjf_f5 =
   {
-    .win = "pushd build && raddbgi_from_pdb.exe --exe:raddbg.exe --pdb:raddbg.pdb --out:raddbg.raddbg --capture && popd",
+    .win = "pushd build && rdi_from_pdb.exe --exe:raddbg.exe --pdb:raddbg.pdb --out:raddbg.rdi --capture && popd",
     .linux = "",
     .out = "*compilation*",
     .footer_panel = true,
@@ -108,18 +109,18 @@ commands =
     .save_dirty_files = true,
     .cursor_at_end = false,
   },
-  .build_raddbgi_from_pdb =
+  .build_rdi_from_pdb =
   {
-    .win = "build raddbgi_from_pdb",
+    .win = "build rdi_from_pdb",
     .linux = "",
     .out = "*compilation*",
     .footer_panel = true,
     .save_dirty_files = true,
     .cursor_at_end = false,
   },
-  .build_raddbgi_dump =
+  .build_rdi_dump =
   {
-    .win = "build raddbgi_dump",
+    .win = "build rdi_dump",
     .linux = "",
     .out = "*compilation*",
     .footer_panel = true,

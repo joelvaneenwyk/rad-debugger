@@ -48,71 +48,6 @@ struct DF_StringBindingPair
 };
 
 ////////////////////////////////
-//~ rjf: Text Searching Types
-
-typedef struct DF_TextSearchMatch DF_TextSearchMatch;
-struct DF_TextSearchMatch
-{
-  TxtPt pt;
-};
-
-typedef struct DF_TextSearchMatchChunkNode DF_TextSearchMatchChunkNode;
-struct DF_TextSearchMatchChunkNode
-{
-  DF_TextSearchMatchChunkNode *next;
-  DF_TextSearchMatch *v;
-  U64 count;
-  U64 cap;
-};
-
-typedef struct DF_TextSearchMatchChunkList DF_TextSearchMatchChunkList;
-struct DF_TextSearchMatchChunkList
-{
-  DF_TextSearchMatchChunkNode *first;
-  DF_TextSearchMatchChunkNode *last;
-  U64 node_count;
-  U64 total_count;
-};
-
-typedef struct DF_TextSearchMatchArray DF_TextSearchMatchArray;
-struct DF_TextSearchMatchArray
-{
-  DF_TextSearchMatch *v;
-  U64 count;
-};
-
-typedef struct DF_TextSearchCacheNode DF_TextSearchCacheNode;
-struct DF_TextSearchCacheNode
-{
-  // rjf: links
-  DF_TextSearchCacheNode *next;
-  DF_TextSearchCacheNode *prev;
-  
-  // rjf: allocation
-  Arena *arena;
-  
-  // rjf: search parameters
-  U128 hash;
-  String8 needle;
-  DF_TextSliceFlags flags;
-  TxtPt start_pt;
-  
-  // rjf: search results
-  B32 good;
-  DF_TextSearchMatchChunkList search_matches;
-  
-  // rjf: last time touched
-  U64 last_time_touched_us;
-};
-
-typedef struct DF_TextSearchCacheSlot DF_TextSearchCacheSlot;
-struct DF_TextSearchCacheSlot
-{
-  DF_TextSearchCacheNode *first;
-  DF_TextSearchCacheNode *last;
-};
-
-////////////////////////////////
 //~ rjf: Key Map Types
 
 typedef struct DF_KeyMapNode DF_KeyMapNode;
@@ -132,13 +67,23 @@ struct DF_KeyMapSlot
 };
 
 ////////////////////////////////
+//~ rjf: Setting Types
+
+typedef struct DF_SettingVal DF_SettingVal;
+struct DF_SettingVal
+{
+  B32 set;
+  S32 s32;
+};
+
+////////////////////////////////
 //~ rjf: View Functions
 
-struct DF_View;
-struct DF_Panel;
-struct DF_Window;
+typedef struct DF_View DF_View;
+typedef struct DF_Panel DF_Panel;
+typedef struct DF_Window DF_Window;
 
-#define DF_VIEW_SETUP_FUNCTION_SIG(name) void name(struct DF_View *view, DF_CfgNode *cfg_root)
+#define DF_VIEW_SETUP_FUNCTION_SIG(name) void name(DF_Window *ws, struct DF_View *view, DF_CfgNode *cfg_root)
 #define DF_VIEW_SETUP_FUNCTION_NAME(name) df_view_setup_##name
 #define DF_VIEW_SETUP_FUNCTION_DEF(name) internal DF_VIEW_SETUP_FUNCTION_SIG(DF_VIEW_SETUP_FUNCTION_NAME(name))
 typedef DF_VIEW_SETUP_FUNCTION_SIG(DF_ViewSetupFunctionType);
@@ -165,12 +110,22 @@ typedef U32 DF_ViewSpecFlags;
 enum
 {
   DF_ViewSpecFlag_ParameterizedByEntity      = (1<<0),
-  DF_ViewSpecFlag_CanSerialize               = (1<<1),
-  DF_ViewSpecFlag_CanSerializeEntityPath     = (1<<2),
-  DF_ViewSpecFlag_CanFilter                  = (1<<3),
-  DF_ViewSpecFlag_FilterIsCode               = (1<<4),
-  DF_ViewSpecFlag_TypingAutomaticallyFilters = (1<<5),
+  DF_ViewSpecFlag_ProjectSpecific            = (1<<1),
+  DF_ViewSpecFlag_CanSerialize               = (1<<2),
+  DF_ViewSpecFlag_CanSerializeEntityPath     = (1<<3),
+  DF_ViewSpecFlag_CanSerializeQuery          = (1<<4),
+  DF_ViewSpecFlag_CanFilter                  = (1<<5),
+  DF_ViewSpecFlag_FilterIsCode               = (1<<6),
+  DF_ViewSpecFlag_TypingAutomaticallyFilters = (1<<7),
 };
+
+typedef enum DF_NameKind
+{
+  DF_NameKind_Null,
+  DF_NameKind_EntityName,
+  DF_NameKind_COUNT
+}
+DF_NameKind;
 
 typedef struct DF_ViewSpecInfo DF_ViewSpecInfo;
 struct DF_ViewSpecInfo
@@ -242,11 +197,10 @@ struct DF_View
   U64 loading_progress_v;
   U64 loading_progress_v_target;
   
-  // rjf: update flash animation state
-  F32 flash_t;
-  
   // rjf: view state
   UI_ScrollPt2 scroll_pos;
+  TxtPt cursor;
+  TxtPt mark;
   
   // rjf: ctrl context overrides
   DF_CtrlCtx ctrl_ctx_overrides;
@@ -260,6 +214,7 @@ struct DF_View
   // rjf: view kind info
   DF_ViewSpec *spec;
   DF_Handle entity;
+  DF_Handle project;
   
   // rjf: filter mode
   B32 is_filtering;
@@ -291,15 +246,15 @@ struct DF_Panel
   
   // rjf: split data
   Axis2 split_axis;
-  Vec2F32 off_pct_of_parent;
-  Vec2F32 off_pct_of_parent_target;
-  Vec2F32 size_pct_of_parent;
-  Vec2F32 size_pct_of_parent_target;
+  F32 pct_of_parent;
+  
+  // rjf: animated rectangle data
+  Rng2F32 animated_rect_pct;
   
   // rjf: tab params
   Side tab_side;
   
-  // rjf: stable view stacks (tabs)
+  // rjf: stable views (tabs)
   DF_View *first_tab_view;
   DF_View *last_tab_view;
   U64 tab_view_count;
@@ -337,6 +292,19 @@ struct DF_DragDropPayload
 };
 
 ////////////////////////////////
+//~ rjf: Rich Hover Types
+
+typedef struct DF_RichHoverInfo DF_RichHoverInfo;
+struct DF_RichHoverInfo
+{
+  DF_Handle process;
+  Rng1U64 vaddr_range;
+  DF_Handle module;
+  Rng1U64 voff_range;
+  DI_Key dbgi_key;
+};
+
+////////////////////////////////
 //~ rjf: View Rule Spec Types
 
 typedef U32 DF_GfxViewRuleSpecInfoFlags; // NOTE(rjf): see @view_rule_info
@@ -356,11 +324,11 @@ enum
 #define DF_GFX_VIEW_RULE_LINE_STRINGIZE_FUNCTION_NAME(name) df_gfx_view_rule_line_stringize__##name
 #define DF_GFX_VIEW_RULE_LINE_STRINGIZE_FUNCTION_DEF(name) internal DF_GFX_VIEW_RULE_LINE_STRINGIZE_FUNCTION_SIG(DF_GFX_VIEW_RULE_LINE_STRINGIZE_FUNCTION_NAME(name))
 
-#define DF_GFX_VIEW_RULE_ROW_UI_FUNCTION_SIG(name) void name(DF_ExpandKey key, DF_Eval eval, DBGI_Scope *scope, DF_CtrlCtx *ctrl_ctx, EVAL_ParseCtx *parse_ctx, EVAL_String2ExprMap *macro_map, struct DF_CfgNode *cfg)
+#define DF_GFX_VIEW_RULE_ROW_UI_FUNCTION_SIG(name) void name(DF_ExpandKey key, DF_Eval eval, DI_Scope *scope, DF_CtrlCtx *ctrl_ctx, EVAL_ParseCtx *parse_ctx, EVAL_String2ExprMap *macro_map, struct DF_CfgNode *cfg)
 #define DF_GFX_VIEW_RULE_ROW_UI_FUNCTION_NAME(name) df_gfx_view_rule_row_ui__##name
 #define DF_GFX_VIEW_RULE_ROW_UI_FUNCTION_DEF(name) DF_GFX_VIEW_RULE_ROW_UI_FUNCTION_SIG(DF_GFX_VIEW_RULE_ROW_UI_FUNCTION_NAME(name))
 
-#define DF_GFX_VIEW_RULE_BLOCK_UI_FUNCTION_SIG(name) void name(struct DF_Window *ws, DF_ExpandKey key, DF_Eval eval, DBGI_Scope *dbgi_scope, DF_CtrlCtx *ctrl_ctx, EVAL_ParseCtx *parse_ctx, EVAL_String2ExprMap *macro_map, struct DF_CfgNode *cfg, Vec2F32 dim)
+#define DF_GFX_VIEW_RULE_BLOCK_UI_FUNCTION_SIG(name) void name(struct DF_Window *ws, DF_ExpandKey key, DF_Eval eval, String8 string, DI_Scope *di_scope, DF_CtrlCtx *ctrl_ctx, EVAL_ParseCtx *parse_ctx, EVAL_String2ExprMap *macro_map, struct DF_CfgNode *cfg, Vec2F32 dim)
 #define DF_GFX_VIEW_RULE_BLOCK_UI_FUNCTION_NAME(name) df_gfx_view_rule_block_ui__##name
 #define DF_GFX_VIEW_RULE_BLOCK_UI_FUNCTION_DEF(name) DF_GFX_VIEW_RULE_BLOCK_UI_FUNCTION_SIG(DF_GFX_VIEW_RULE_BLOCK_UI_FUNCTION_NAME(name))
 
@@ -378,6 +346,7 @@ struct DF_GfxViewRuleSpecInfo
   DF_GfxViewRuleLineStringizeHookFunctionType *line_stringize;
   DF_GfxViewRuleRowUIFunctionType *row_ui;
   DF_GfxViewRuleBlockUIFunctionType *block_ui;
+  String8 tab_view_spec_name;
 };
 
 typedef struct DF_GfxViewRuleSpecInfoArray DF_GfxViewRuleSpecInfoArray;
@@ -417,6 +386,24 @@ typedef enum DF_FontSlot
 }
 DF_FontSlot;
 
+typedef enum DF_PaletteCode
+{
+  DF_PaletteCode_Base,
+  DF_PaletteCode_MenuBar,
+  DF_PaletteCode_Floating,
+  DF_PaletteCode_ImplicitButton,
+  DF_PaletteCode_PlainButton,
+  DF_PaletteCode_PositivePopButton,
+  DF_PaletteCode_NegativePopButton,
+  DF_PaletteCode_NeutralPopButton,
+  DF_PaletteCode_ScrollBarButton,
+  DF_PaletteCode_Tab,
+  DF_PaletteCode_TabInactive,
+  DF_PaletteCode_DropSiteOverlay,
+  DF_PaletteCode_COUNT
+}
+DF_PaletteCode;
+
 ////////////////////////////////
 //~ rjf: UI Helper & Widget Types
 
@@ -441,8 +428,10 @@ enum
 typedef U32 DF_CodeSliceFlags;
 enum
 {
-  DF_CodeSliceFlag_Margin   = (1<<0),
-  DF_CodeSliceFlag_LineNums = (1<<1),
+  DF_CodeSliceFlag_Clickable         = (1<<0),
+  DF_CodeSliceFlag_PriorityMargin    = (1<<1),
+  DF_CodeSliceFlag_CatchallMargin    = (1<<2),
+  DF_CodeSliceFlag_LineNums          = (1<<3),
 };
 
 typedef struct DF_CodeSliceParams DF_CodeSliceParams;
@@ -453,23 +442,25 @@ struct DF_CodeSliceParams
   Rng1S64 line_num_range;
   String8 *line_text;
   Rng1U64 *line_ranges;
-  TXTI_TokenArray *line_tokens;
+  TXT_TokenArray *line_tokens;
   DF_EntityList *line_bps;
   DF_EntityList *line_ips;
   DF_EntityList *line_pins;
-  DF_TextLineDasm2SrcInfoList *line_dasm2src;
-  DF_TextLineSrc2DasmInfoList *line_src2dasm;
-  DF_EntityList relevant_binaries;
+  U64 *line_vaddrs;
+  DF_LineList *line_infos;
+  DI_KeyList relevant_dbgi_keys;
   
   // rjf: visual parameters
   F_Tag font;
   F32 font_size;
+  F32 tab_size;
   String8 search_query;
   F32 line_height_px;
-  F32 margin_width_px;
+  F32 priority_margin_width_px;
+  F32 catchall_margin_width_px;
   F32 line_num_width_px;
   F32 line_text_max_width_px;
-  DF_EntityList flash_ranges;
+  F32 margin_float_off_px;
 };
 
 typedef struct DF_CodeSliceSignal DF_CodeSliceSignal;
@@ -496,9 +487,14 @@ struct DF_CodeSliceSignal
 typedef U32 DF_AutoCompListerFlags;
 enum
 {
-  DF_AutoCompListerFlag_Locals    = (1<<0),
-  DF_AutoCompListerFlag_Registers = (1<<1),
-  DF_AutoCompListerFlag_ViewRules = (1<<2),
+  DF_AutoCompListerFlag_Locals        = (1<<0),
+  DF_AutoCompListerFlag_Registers     = (1<<1),
+  DF_AutoCompListerFlag_ViewRules     = (1<<2),
+  DF_AutoCompListerFlag_ViewRuleParams= (1<<3),
+  DF_AutoCompListerFlag_Members       = (1<<4),
+  DF_AutoCompListerFlag_Languages     = (1<<5),
+  DF_AutoCompListerFlag_Architectures = (1<<6),
+  DF_AutoCompListerFlag_Tex2DFormats  = (1<<7),
 };
 
 typedef struct DF_AutoCompListerItem DF_AutoCompListerItem;
@@ -534,6 +530,13 @@ struct DF_AutoCompListerItemArray
   U64 count;
 };
 
+typedef struct DF_AutoCompListerParams DF_AutoCompListerParams;
+struct DF_AutoCompListerParams
+{
+  DF_AutoCompListerFlags flags;
+  String8List strings;
+};
+
 ////////////////////////////////
 //~ rjf: Per-Window State
 
@@ -552,36 +555,57 @@ struct DF_Window
   OS_Handle os;
   R_Handle r;
   UI_State *ui;
-  F32 code_font_size_delta;
-  F32 main_font_size_delta;
+  F32 last_dpi;
+  B32 window_temporarily_focused_ipc;
+  
+  // rjf: config/settings
+  DF_SettingVal setting_vals[DF_SettingCode_COUNT];
+  UI_Palette cfg_palettes[DF_PaletteCode_COUNT]; // derivative from theme
   
   // rjf: view state delta history
   DF_StateDeltaHistory *view_state_hist;
   
-  // rjf: context menu info
+  // rjf: dev interface state
   B32 dev_menu_is_open;
+  
+  // rjf: menu bar state
   B32 menu_bar_focused;
   B32 menu_bar_focused_on_press;
   B32 menu_bar_key_held;
   B32 menu_bar_focus_press_started;
-  UI_Key drop_completion_ctx_menu_key;
-  DF_Handle drop_completion_entity;
-  DF_Handle drop_completion_panel;
+  
+  // rjf: code context menu state
+  Arena *code_ctx_menu_arena;
+  UI_Key code_ctx_menu_key;
+  DF_Handle code_ctx_menu_file;
+  U128 code_ctx_menu_text_key;
+  TXT_LangKind code_ctx_menu_lang_kind;
+  TxtRng code_ctx_menu_range;
+  U64 code_ctx_menu_vaddr;
+  DF_LineList code_ctx_menu_lines;
+  
+  // rjf: entity context menu state
   UI_Key entity_ctx_menu_key;
   DF_Handle entity_ctx_menu_entity;
   U8 entity_ctx_menu_input_buffer[1024];
   U64 entity_ctx_menu_input_size;
   TxtPt entity_ctx_menu_input_cursor;
   TxtPt entity_ctx_menu_input_mark;
+  
+  // rjf: tab context menu state
   UI_Key tab_ctx_menu_key;
+  DF_Handle tab_ctx_menu_panel;
   DF_Handle tab_ctx_menu_view;
   
   // rjf: autocomplete lister state
   U64 autocomp_last_frame_idx;
   B32 autocomp_force_closed;
+  B32 autocomp_query_dirty;
   UI_Key autocomp_root_key;
   DF_CtrlCtx autocomp_ctrl_ctx;
-  DF_AutoCompListerFlags autocomp_lister_flags;
+  Arena *autocomp_lister_params_arena;
+  DF_AutoCompListerParams autocomp_lister_params;
+  U64 autocomp_cursor_off;
   U8 autocomp_lister_query_buffer[1024];
   U64 autocomp_lister_query_size;
   F32 autocomp_open_t;
@@ -751,10 +775,11 @@ struct DF_GfxState
   // rjf: drag/drop state machine
   DF_DragDropState drag_drop_state;
   
-  // rjf: hover line info correllation state
-  DF_Handle hover_line_binary;
-  U64 hover_line_voff;
-  B32 hover_line_set_this_frame;
+  // rjf: rich hover info
+  Arena *rich_hover_info_next_arena;
+  Arena *rich_hover_info_current_arena;
+  DF_RichHoverInfo rich_hover_info_next;
+  DF_RichHoverInfo rich_hover_info_current;
   
   // rjf: running theme state
   DF_Theme cfg_theme_target;
@@ -763,7 +788,13 @@ struct DF_GfxState
   Arena *cfg_code_font_path_arena;
   String8 cfg_main_font_path;
   String8 cfg_code_font_path;
-  F_Tag cfg_font_tags[DF_FontSlot_COUNT];
+  F_Tag cfg_font_tags[DF_FontSlot_COUNT]; // derivative from font paths
+  
+  // rjf: global settings
+  DF_SettingVal cfg_setting_vals[DF_CfgSrc_COUNT][DF_SettingCode_COUNT];
+  
+  // rjf: icon texture
+  R_Handle icon_texture;
 };
 
 ////////////////////////////////
@@ -799,7 +830,8 @@ read_only global DF_View df_g_nil_view =
   0,
   0,
   0,
-  0,
+  {0},
+  {0},
   {0},
   {0},
   0,
@@ -822,6 +854,8 @@ read_only global DF_Panel df_g_nil_panel =
 
 global DF_GfxState *df_gfx_state = 0;
 global DF_DragDropPayload df_g_drag_drop_payload = {0};
+global DF_Handle df_g_last_drag_drop_panel = {0};
+global DF_Handle df_g_last_drag_drop_prev_tab = {0};
 
 ////////////////////////////////
 //~ rjf: Basic Helpers
@@ -832,6 +866,7 @@ internal DF_PathQuery df_path_query_from_string(String8 string);
 //~ rjf: View Type Functions
 
 internal B32 df_view_is_nil(DF_View *view);
+internal B32 df_view_is_project_filtered(DF_View *view);
 internal DF_Handle df_handle_from_view(DF_View *view);
 internal DF_View *df_view_from_handle(DF_Handle handle);
 
@@ -862,12 +897,13 @@ internal DF_PanelRec df_panel_rec_df(DF_Panel *panel, U64 sib_off, U64 child_off
 #define df_panel_rec_df_post(panel) df_panel_rec_df(panel, OffsetOf(DF_Panel, prev), OffsetOf(DF_Panel, last))
 
 //- rjf: panel -> rect calculations
-internal Rng2F32 df_rect_from_panel_child(Rng2F32 parent_rect, DF_Panel *parent, DF_Panel *panel);
-internal Rng2F32 df_rect_from_panel(Rng2F32 root_rect, DF_Panel *root, DF_Panel *panel);
+internal Rng2F32 df_target_rect_from_panel_child(Rng2F32 parent_rect, DF_Panel *parent, DF_Panel *panel);
+internal Rng2F32 df_target_rect_from_panel(Rng2F32 root_rect, DF_Panel *root, DF_Panel *panel);
 
 //- rjf: view ownership insertion/removal
 internal void df_panel_insert_tab_view(DF_Panel *panel, DF_View *prev_view, DF_View *view);
 internal void df_panel_remove_tab_view(DF_Panel *panel, DF_View *view);
+internal DF_View *df_selected_tab_from_panel(DF_Panel *panel);
 
 //- rjf: icons & display strings
 internal String8 df_display_string_from_view(Arena *arena, DF_CtrlCtx ctrl_ctx, DF_View *view);
@@ -904,9 +940,8 @@ internal B32 df_drag_drop(DF_DragDropPayload *out_payload);
 internal void df_drag_kill(void);
 internal void df_queue_drag_drop(void);
 
-internal void df_set_hovered_line_info(DF_Entity *binary, U64 voff);
-internal DF_Entity *df_get_hovered_line_info_binary(void);
-internal U64 df_get_hovered_line_info_voff(void);
+internal void df_set_rich_hover_info(DF_RichHoverInfo *info);
+internal DF_RichHoverInfo df_get_rich_hover_info(void);
 
 ////////////////////////////////
 //~ rjf: View Spec State Functions
@@ -921,13 +956,14 @@ internal DF_ViewSpec *df_view_spec_from_cmd_param_slot_spec(DF_CmdParamSlot slot
 
 internal void df_register_gfx_view_rule_specs(DF_GfxViewRuleSpecInfoArray specs);
 internal DF_GfxViewRuleSpec *df_gfx_view_rule_spec_from_string(String8 string);
+internal DF_ViewSpec *df_tab_view_spec_from_gfx_view_rule_spec(DF_GfxViewRuleSpec *spec);
 
 ////////////////////////////////
 //~ rjf: View State Functions
 
 internal DF_View *df_view_alloc(void);
 internal void df_view_release(DF_View *view);
-internal void df_view_equip_spec(DF_View *view, DF_ViewSpec *spec, DF_Entity *entity, String8 default_query, DF_CfgNode *cfg_root);
+internal void df_view_equip_spec(DF_Window *window, DF_View *view, DF_ViewSpec *spec, DF_Entity *entity, String8 default_query, DF_CfgNode *cfg_root);
 internal void df_view_equip_loading_info(DF_View *view, B32 is_loading, U64 progress_v, U64 progress_target);
 internal void df_view_clear_user_state(DF_View *view);
 internal void *df_view_get_or_push_user_state(DF_View *view, U64 size);
@@ -955,14 +991,14 @@ internal DF_Window *df_window_open(Vec2F32 size, OS_Handle preferred_monitor, DF
 
 internal DF_Window *df_window_from_os_handle(OS_Handle os);
 
-internal void df_window_update_and_render(Arena *arena, OS_EventList *events, DF_Window *ws, DF_CmdList *cmds);
+internal void df_window_update_and_render(Arena *arena, DF_Window *ws, DF_CmdList *cmds);
 
 ////////////////////////////////
 //~ rjf: Eval Viz
 
 internal String8 df_eval_escaped_from_raw_string(Arena *arena, String8 raw);
 internal String8List df_single_line_eval_value_strings_from_eval(Arena *arena, DF_EvalVizStringFlags flags, TG_Graph *graph, RDI_Parsed *rdi, DF_CtrlCtx *ctrl_ctx, U32 default_radix, F_Tag font, F32 font_size, F32 max_size, S32 depth, DF_Eval eval, TG_Member *opt_member, DF_CfgTable *cfg_table);
-internal DF_EvalVizWindowedRowList df_eval_viz_windowed_row_list_from_viz_block_list(Arena *arena, DBGI_Scope *scope, DF_CtrlCtx *ctrl_ctx, EVAL_ParseCtx *parse_ctx, EVAL_String2ExprMap *macro_map, DF_EvalView *eval_view, U32 default_radix, F_Tag font, F32 font_size, Rng1S64 visible_range, DF_EvalVizBlockList *blocks);
+internal DF_EvalVizWindowedRowList df_eval_viz_windowed_row_list_from_viz_block_list(Arena *arena, DI_Scope *scope, DF_CtrlCtx *ctrl_ctx, EVAL_ParseCtx *parse_ctx, EVAL_String2ExprMap *macro_map, DF_EvalView *eval_view, U32 default_radix, F_Tag font, F32 font_size, Rng1S64 visible_range, DF_EvalVizBlockList *blocks);
 
 ////////////////////////////////
 //~ rjf: Hover Eval
@@ -977,24 +1013,15 @@ internal DF_AutoCompListerItemArray df_autocomp_lister_item_array_from_chunk_lis
 internal int df_autocomp_lister_item_qsort_compare(DF_AutoCompListerItem *a, DF_AutoCompListerItem *b);
 internal void df_autocomp_lister_item_array_sort__in_place(DF_AutoCompListerItemArray *array);
 
-internal void df_set_autocomp_lister_query(DF_Window *ws, UI_Key root_key, DF_CtrlCtx ctrl_ctx, DF_AutoCompListerFlags flags, String8 query);
+internal String8 df_autocomp_query_word_from_input_string_off(String8 input, U64 cursor_off);
+internal DF_AutoCompListerParams df_view_rule_autocomp_lister_params_from_input_cursor(Arena *arena, String8 string, U64 cursor_off);
+internal void df_set_autocomp_lister_query(DF_Window *ws, UI_Key root_key, DF_CtrlCtx ctrl_ctx, DF_AutoCompListerParams *params, String8 input, U64 cursor_off);
 
 ////////////////////////////////
 //~ rjf: Search Strings
 
 internal void df_set_search_string(String8 string);
 internal String8 df_push_search_string(Arena *arena);
-
-////////////////////////////////
-//~ rjf: Text Searching
-
-internal void df_text_search_match_chunk_list_push(Arena *arena, DF_TextSearchMatchChunkList *list, U64 cap, DF_TextSearchMatch *match);
-internal DF_TextSearchMatchArray df_text_search_match_array_from_chunk_list(Arena *arena, DF_TextSearchMatchChunkList *chunks);
-internal U64 df_text_search_little_hash_from_hash(U128 hash);
-internal void df_text_search_thread_entry_point(void *p);
-internal int df_text_search_match_array_qsort_compare(TxtPt *a, TxtPt *b);
-internal void df_text_search_match_array_sort_in_place(DF_TextSearchMatchArray *array);
-internal DF_TextSearchMatch df_text_search_match_array_find_nearest__linear_scan(DF_TextSearchMatchArray *array, TxtPt pt, Side side);
 
 ////////////////////////////////
 //~ rjf: Colors, Fonts, Config
@@ -1010,26 +1037,45 @@ internal DF_CmdSpecList df_cmd_spec_list_from_event_flags(Arena *arena, OS_Event
 
 //- rjf: colors
 internal Vec4F32 df_rgba_from_theme_color(DF_ThemeColor color);
-internal DF_ThemeColor df_theme_color_from_txti_token_kind(TXTI_TokenKind kind);
+internal DF_ThemeColor df_theme_color_from_txt_token_kind(TXT_TokenKind kind);
+
+//- rjf: code -> palette
+internal UI_Palette *df_palette_from_code(DF_Window *ws, DF_PaletteCode code);
 
 //- rjf: fonts/sizes
 internal F_Tag df_font_from_slot(DF_FontSlot slot);
 internal F32 df_font_size_from_slot(DF_Window *ws, DF_FontSlot slot);
 
+//- rjf: settings
+internal DF_SettingVal df_setting_val_from_code(DF_Window *optional_window, DF_SettingCode code);
+
 //- rjf: config serialization
+internal int df_qsort_compare__cfg_string_bindings(DF_StringBindingPair *a, DF_StringBindingPair *b);
 internal String8List df_cfg_strings_from_gfx(Arena *arena, String8 root_path, DF_CfgSrc source);
+
+////////////////////////////////
+//~ rjf: Process Control Info Stringification
+
+internal String8 df_string_from_exception_code(U32 code);
+internal String8 df_stop_explanation_string_icon_from_ctrl_event(Arena *arena, CTRL_Event *event, DF_IconKind *icon_out);
+
+////////////////////////////////
+//~ rjf: UI Building Helpers
+
+#define DF_Palette(ws, code) UI_Palette(df_palette_from_code((ws), (code)))
 
 ////////////////////////////////
 //~ rjf: UI Widgets: Fancy Buttons
 
+internal void df_cmd_binding_buttons(DF_CmdSpec *spec);
 internal void df_cmd_binding_button(DF_CmdSpec *spec);
 internal UI_Signal df_menu_bar_button(String8 string);
 internal UI_Signal df_cmd_spec_button(DF_CmdSpec *spec);
 internal void df_cmd_list_menu_buttons(DF_Window *ws, U64 count, DF_CoreCmdKind *cmds, U32 *fastpath_codepoints);
 internal UI_Signal df_icon_button(DF_IconKind kind, FuzzyMatchRangeList *matches, String8 string);
 internal UI_Signal df_icon_buttonf(DF_IconKind kind, FuzzyMatchRangeList *matches, char *fmt, ...);
-internal void df_entity_tooltips(DF_Entity *entity);
-internal void df_entity_desc_button(DF_Window *ws, DF_Entity *entity, FuzzyMatchRangeList *name_matches, String8 fuzzy_query);
+internal void df_entity_tooltips(DF_Window *ws, DF_Entity *entity);
+internal UI_Signal df_entity_desc_button(DF_Window *ws, DF_Entity *entity, FuzzyMatchRangeList *name_matches, String8 fuzzy_query, B32 is_implicit);
 internal void df_entity_src_loc_button(DF_Window *ws, DF_Entity *entity, TxtPt point);
 
 ////////////////////////////////
@@ -1040,8 +1086,7 @@ internal UI_BOX_CUSTOM_DRAW(df_bp_box_draw_extensions);
 internal DF_CodeSliceSignal df_code_slice(DF_Window *ws, DF_CtrlCtx *ctrl_ctx, EVAL_ParseCtx *parse_ctx, DF_CodeSliceParams *params, TxtPt *cursor, TxtPt *mark, S64 *preferred_column, String8 string);
 internal DF_CodeSliceSignal df_code_slicef(DF_Window *ws, DF_CtrlCtx *ctrl_ctx, EVAL_ParseCtx *parse_ctx, DF_CodeSliceParams *params, TxtPt *cursor, TxtPt *mark, S64 *preferred_column, char *fmt, ...);
 
-internal B32 df_do_txti_controls(TXTI_Handle handle, U64 line_count_per_page, TxtPt *cursor, TxtPt *mark, S64 *preferred_column);
-internal B32 df_do_dasm_controls(DASM_Handle handle, U64 line_count_per_page, TxtPt *cursor, TxtPt *mark, S64 *preferred_column);
+internal B32 df_do_txt_controls(TXT_TextInfo *info, String8 data, U64 line_count_per_page, TxtPt *cursor, TxtPt *mark, S64 *preferred_column);
 
 ////////////////////////////////
 //~ rjf: UI Widgets: Fancy Labels

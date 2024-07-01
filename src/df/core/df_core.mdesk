@@ -8,21 +8,13 @@
 DF_CfgSrcTable:
 {
   {"user"            User             OpenUser       WriteUserData       ApplyUserData    }
-  {"profile"         Profile          OpenProfile    WriteProfileData    ApplyProfileData }
+  {"project"         Project          OpenProject    WriteProjectData    ApplyProjectData }
   {"command_line"    CommandLine      Null           Null                Null             }
   {"transient"       Transient        Null           Null                Null             }
 }
 
 ////////////////////////////////
 //~ rjf: Entity Kind Tables
-
-@table(name)
-DF_NameKindTable:
-{
-  {Null}
-  {EntityName}
-  {EntityKindName}
-}
 
 @table(name          name_lower            op_delete     op_freeze       op_edit      op_rename    op_enable       op_cond       op_dup       lf_mut_user_cfg     tr_mut_user_cfg     lf_mut_prof_cfg     tr_mut_prof_cfg     lf_mut_halt   lf_mut_dbg   tr_mut_halt   tr_mut_dbg   name_is_code   user_lifetime            name_label          icon_kind              display_string)
 DF_EntityKindTable:
@@ -34,13 +26,9 @@ DF_EntityKindTable:
   //- rjf: filesystem modeling
   {File               file                  0             0               0            0            0               0             0            0                   0                    0                  0                   0             0            0             0            0              0                        "Label"             FileOutline            "File"                       }
   {OverrideFileLink   override_file_link    0             0               0            0            0               0             0            1                   0                    0                  0                   0             0            0             0            0              0                        "Label"             FileOutline            "Override File Link"         }
-  {PendingFileChange  pending_file_change   0             0               0            0            0               0             0            0                   0                    0                  0                   0             0            0             0            0              0                        "Label"             FileOutline            "Pending File Change"        }
   
-  //- rjf: diagnostics log
-  {DiagLog            diag_log              0             0               0            0            0               0             0            0                   0                    0                  0                   0             0            0             0            0              0                        "Label"             FileOutline            "Diagnostics Log"            }
-  
-  //- rjf: text attachments
-  {FlashMarker        flash_marker          0             0               0            0            0               0             0            0                   0                    0                  0                   0             0            0             0            0              0                        "Label"             Null                   "Flash Marker"               }
+  //- rjf: auto view rules
+  {AutoViewRule       auto_view_rule        0             0               0            0            0               0             0            0                   0                    0                  0                   0             0            0             0            0              1                        "Label"             Binoculars             "Auto View Rule"             }
   
   //- rjf: watch pins
   {WatchPin           watch_pin             1             0               0            1            0               0             1            0                   0                    0                  0                   0             0            0             0            1              1                        "Expression"        Pin                    "Watch Pin"                  }
@@ -56,17 +44,19 @@ DF_EntityKindTable:
   {ExecutionPath      execution_path        0             0               0            0            0               0             0            0                   0                    1                  0                   0             0            0             0            0              1                        "Execution Path"    Null                   "Execution Path"             }
   {EntryPointName     entry_point_name      0             0               0            0            0               0             0            0                   0                    1                  0                   1             0            0             0            0              1                        "Symbol Name"       Null                   "Entry Point Name"           }
   
+  //- rjf: recent projects
+  {RecentProject      recent_project        0             0               0            0            0               0             0            1                   1                    0                  0                   0             0            0             0            0              0                        "Path"              Briefcase              "Recent Project"             }
+  
   //- rjf: src -> dst mapping
   {Source             source                0             0               0            0            0               0             0            0                   0                    0                  0                   0             0            0             0            0              0                        "Path"              Null                   "Source"                     }
   {Dest               dest                  0             0               0            0            0               0             0            0                   0                    0                  0                   0             0            0             0            0              0                        "Path"              Null                   "Destination"                }
   
   //- rjf: control system entities
-  {CtrlRequest        ctrl_request          0             0               0            1            0               0             0            0                   0                    0                  0                   0             0            0             0            0              0                        "Label"             Null                   "Control Request"            }
   {Process            process               0             1               0            1            0               0             0            0                   0                    0                  0                   0             0            0             0            0              0                        "Label"             Threads                "Process"                    }
   {Thread             thread                0             1               0            1            0               0             0            0                   0                    0                  0                   0             0            0             0            0              0                        "Label"             Thread                 "Thread"                     }
   {Module             module                0             0               0            0            0               0             0            0                   0                    0                  0                   0             0            0             0            0              0                        "Label"             Module                 "Module"                     }
-  {DebugInfoOverride  debug_info_override   0             0               0            0            0               0             0            0                   0                    0                  0                   1             1            1             1            0              0                        "Label"             Null                   "Debug Info Override"        }
   {PendingThreadName  pending_thread_name   0             0               0            0            0               0             0            0                   0                    0                  0                   0             0            0             0            0              0                        "Label"             Threads                "Pending Thread Name"        }
+  {DebugInfoPath      debug_info_path       0             0               0            0            0               0             0            0                   0                    0                  0                   0             0            0             0            0              0                        "Label"             Module                 "Debug Info Path"            }
   
   //- rjf: parser task entities
   {ConversionTask     conversion_task       0             0               0            1            0               0             0            0                   0                    0                  0                   0             0            0             0            0              0                        "Label"             Null                   "Conversion Task"            }
@@ -82,24 +72,29 @@ DF_EntityKindTable:
 @table(name, name_lower, c_type)
 DF_CmdParamSlotTable:
 {
-  {Window,            window,       `DF_Handle`}
-  {Panel,             panel,        `DF_Handle`}
-  {DestPanel,         dest_panel,   `DF_Handle`}
-  {PrevView,          prev_view,    `DF_Handle`}
-  {View,              view,         `DF_Handle`}
-  {Entity,            entity,       `DF_Handle`}
-  {EntityList,        entity_list,  `DF_HandleList`}
-  {String,            string,       `String8`}
-  {FilePath,          file_path,    `String8`}
-  {TextPoint,         text_point,   `TxtPt`}
-  {CmdSpec,           cmd_spec,     `struct DF_CmdSpec *`}
-  {ViewSpec,          view_spec,    `struct DF_ViewSpec *`}
-  {VirtualAddr,       vaddr,        `U64`}
-  {VirtualOff,        voff,         `U64`}
-  {Index,             index,        `U64`}
-  {ID,                id,           `U64`}
-  {PreferDisassembly, prefer_dasm,  `B32`}
-  {ForceConfirm,      force_confirm,`B32`}
+  {Window            window                `DF_Handle`}
+  {Panel             panel                 `DF_Handle`}
+  {DestPanel         dest_panel            `DF_Handle`}
+  {PrevView          prev_view             `DF_Handle`}
+  {View              view                  `DF_Handle`}
+  {Entity            entity                `DF_Handle`}
+  {EntityList        entity_list           `DF_HandleList`}
+  {String            string                `String8`}
+  {FilePath          file_path             `String8`}
+  {TextPoint         text_point            `TxtPt`}
+  {CmdSpec           cmd_spec              `struct DF_CmdSpec *`}
+  {ViewSpec          view_spec             `struct DF_ViewSpec *`}
+  {CfgNode           cfg_node              `struct DF_CfgNode *`}
+  {OSEvent           os_event              `struct OS_Event *`}
+  {VirtualAddr       vaddr                 `U64`}
+  {VirtualOff        voff                  `U64`}
+  {Index             index                 `U64`}
+  {ID                id                    `U64`}
+  {PreferDisassembly prefer_dasm           `B32`}
+  {ForceConfirm      force_confirm         `B32`}
+  {Dir2              dir2                  `Dir2`}
+  {BaseUnwindIndex   base_unwind_index     `U64`}
+  {InlineUnwindIndex inline_unwind_index   `U64`}
 }
 
 @table(name                      lister_omit  q_slot       q_ent_kind  q_allow_files q_allow_folders  q_keep_oi   q_select_oi  q_is_code  q_required           canonical_icon        string                        display_name                                  desc                                                                                                               search_tags                      )
@@ -117,6 +112,9 @@ DF_CoreCmdTable://               |            |                  |              
   
   //- rjf: notifications
   {Error                          1            Null               Nil                0  0  0  0  0  0                                                           Null                  "error"                       "Error"                                       "Notifies of an error."                                                                                            ""                               }
+  
+  //- rjf: os event passthrough
+  {OSEvent                        1            Null               Nil                0  0  0  0  0  0                                                           Null                  "os_event"                    "OS Event"                                    ""                                                                                                                 ""                               }
   
   //- rjf: low-level target control operations
   {LaunchAndRun                   0            EntityList         Target             0  0  0  0  0  1                                                           Play                  "launch_and_run"              "Launch and Run"                              "Starts debugging a new instance of a target, then runs."                                                          "launch,start,run,target"        }
@@ -144,18 +142,14 @@ DF_CoreCmdTable://               |            |                  |              
   {RunToCursor                    0            Null               Nil                0  0  0  0  0  0                                                           Play                  "run_to_cursor"               "Run To Cursor"                               "Runs the selected thread to the current cursor."                                                                  ""                               }
   {SetNextStatement               0            Null               Nil                0  0  0  0  0  0                                                           RightArrow            "set_next_statement"          "Set Next Statement"                          "Sets the selected thread's instruction pointer to the cursor's position."                                         ""                               }
   
-  //- rjf: solo stepping mode
-  {EnableSoloSteppingMode         0            Null               Nil                0  0  0  0  0  0                                                           Thread                "enable_solo_stepping_mode"   "Enable Solo Stepping Mode"                   "Enables 'solo stepping mode', which suspends all non-selected threads before stepping."                           "solo,stepping,mode,suspend"     }
-  {DisableSoloSteppingMode        0            Null               Nil                0  0  0  0  0  0                                                           Thread                "disable_solo_stepping_mode"  "Disable Solo Stepping Mode"                  "Disables 'solo stepping mode', which suspends all non-selected threads before stepping."                          "solo,stepping,mode,suspend"     }
-  
   //- rjf: debug control context management operations
   {SelectThread                   0            Entity             Thread             0  0  0  0  0  1                                                           Null                  "select_thread"               "Select Thread"                               "Selects a thread."                                                                                                ""                               }
   {SelectThreadWindow             0            Entity             Thread             0  0  0  0  0  1                                                           Null                  "select_thread_window"        "Select Thread On Window"                     "Selects a thread for the active window, overriding the global selected thread."                                   ""                               }
   {SelectThreadView               0            Entity             Thread             0  0  0  0  0  1                                                           Null                  "select_thread_view"          "Select Thread On View"                       "Selects a thread for the active view, overriding the global and per-window selected threads."                     ""                               }
   {SelectUnwind                   1            Null               Nil                0  0  0  0  0  0                                                           Null                  "select_unwind"               "Select Unwind"                               "Selects an unwind frame number for the selected thread."                                                          ""                               }
-  {UpOneFrame                     0            Null               Nil                0  0  0  0  0  0                                                           UpArrow               "up_one_frame"                "Up One Frame"                                "Selects the callstack frame above the currently selected."                                                        ""                               }
-  {DownOneFrame                   0            Null               Nil                0  0  0  0  0  0                                                           DownArrow             "down_one_frame"              "Down One Frame"                              "Selects the callstack frame below the currently selected."                                                        ""                               }
-  {FreezeThread                   0            Entity             Thread             0  0  0  0  0  1                                                           Locked                "freeze_thread"               "Freeze Thread"                               "Freezes the passed thread."                                                                                       ""                               }
+  {UpOneFrame                     0            Null               Nil                0  0  0  0  0  0                                                           UpArrow               "up_one_frame"                "Up One Frame"                                "Selects the call stack frame above the currently selected."                                                       ""                               }
+  {DownOneFrame                   0            Null               Nil                0  0  0  0  0  0                                                           DownArrow             "down_one_frame"              "Down One Frame"                              "Selects the call stack frame below the currently selected."                                                       "callstack,unwind"               }
+  {FreezeThread                   0            Entity             Thread             0  0  0  0  0  1                                                           Locked                "freeze_thread"               "Freeze Thread"                               "Freezes the passed thread."                                                                                       "callstack,unwind"               }
   {ThawThread                     0            Entity             Thread             0  0  0  0  0  1                                                           Unlocked              "thaw_thread"                 "Thaw Thread"                                 "Thaws the passed thread."                                                                                         ""                               }
   {FreezeProcess                  0            Entity             Process            0  0  0  0  0  1                                                           Locked                "freeze_process"              "Freeze Process"                              "Freezes the passed process."                                                                                      ""                               }
   {ThawProcess                    0            Entity             Process            0  0  0  0  0  1                                                           Unlocked              "thaw_process"                "Thaw Process"                                "Thaws the passed process."                                                                                        ""                               }
@@ -181,8 +175,12 @@ DF_CoreCmdTable://               |            |                  |              
   
   //- rjf: panel splitting
   {ResetToDefaultPanels           0            Null               Nil                0  0  0  0  0  0                                                           Window                "reset_to_default_panels"     "Reset To Default Panel Layout"               "Resets the window to the default panel layout."                                                                   "panel"                          }
-  {NewPanelRight                  0            Null               Nil                0  0  0  0  0  0                                                           XSplit                "new_panel_right"             "Split Panel Vertically"                      "Creates a new panel to the right of the active panel."                                                            "panel"                          }
-  {NewPanelDown                   0            Null               Nil                0  0  0  0  0  0                                                           YSplit                "new_panel_down"              "Split Panel Horizontally"                    "Creates a new panel at the bottom of the active panel."                                                           "panel"                          }
+  {ResetToCompactPanels           0            Null               Nil                0  0  0  0  0  0                                                           Window                "reset_to_compact_panels"     "Reset To Compact Panel Layout"               "Resets the window to the compact panel layout."                                                                   "panel"                          }
+  {NewPanelLeft                   0            Null               Nil                0  0  0  0  0  0                                                           XSplit                "new_panel_left"              "Split Panel Left"                            "Creates a new panel to the left of the active panel."                                                             "panel"                          }
+  {NewPanelUp                     0            Null               Nil                0  0  0  0  0  0                                                           YSplit                "new_panel_up"                "Split Panel Up"                              "Creates a new panel at the top of the active panel."                                                              "panel"                          }
+  {NewPanelRight                  0            Null               Nil                0  0  0  0  0  0                                                           XSplit                "new_panel_right"             "Split Panel Right"                           "Creates a new panel to the right of the active panel."                                                            "panel"                          }
+  {NewPanelDown                   0            Null               Nil                0  0  0  0  0  0                                                           YSplit                "new_panel_down"              "Split Panel Down"                            "Creates a new panel at the bottom of the active panel."                                                           "panel"                          }
+  {SplitPanel                     1            Null               Nil                0  0  0  0  0  0                                                           Null                  "split_panel"                 "Split Panel"                                 "Creates a new panel in a given direction, and moves a tab to it, if specified."                                   ""                               }
   
   //- rjf: panel rotation
   {RotatePanelColumns             0            Null               Nil                0  0  0  0  0  0                                                           Null                  "rotate_panel_columns"        "Rotate Panel Columns"                        "Rotates all panels at the closest column level of the panel hierarchy."                                           ""                               }
@@ -221,27 +219,39 @@ DF_CoreCmdTable://               |            |                  |              
   //- rjf: files
   {SetCurrentPath                 1            Null               Nil                0  0  0  0  0  0                                                           FileOutline           "set_current_path"            "Set Current Path"                            "Sets the debugger's current path, which is used as a starting point when browsing for files."                     ""                               }
   {Open                           0            FilePath           Nil                1  0  0  0  0  1                                                           FileOutline           "open"                        "Open"                                        "Opens a file."                                                                                                    "code,source,file"               }
-  {Reload                         0            Entity             File               0  0  0  0  0  1                                                           FileOutline           "reload"                      "Reload"                                      "Reloads a loaded file."                                                                                           "code,source,file,reload"        }
-  {ReloadActive                   0            Null               Nil                0  0  0  0  0  0                                                           FileOutline           "reload_active"               "Reload Active File"                          "Reloads the active file."                                                                                         "code,source,file,reload"        }
   {Switch                         0            Entity             File               0  0  0  0  0  1                                                           FileOutline           "switch"                      "Switch"                                      "Switches to a loaded file."                                                                                       "code,source,file"               }
   {SwitchToPartnerFile            0            Null               Nil                0  0  0  0  0  0                                                           FileOutline           "switch_to_partner_file"      "Switch To Partner File"                      "Switches to the focused file's partner; or from header to implementation or vice versa."                          "code,source,file"               }
+  
+  //- rjf: source <-> disasm
+  {GoToDisassembly                0            Null               Nil                0  0  0  0  0  0                                                           Glasses               "go_to_disassembly"           "Go To Disassembly"                           "Goes to the disassembly, if any, for a given source code line."                                                   "code,source,disassembly,disasm" }
+  {GoToSource                     0            Null               Nil                0  0  0  0  0  0                                                           FileOutline           "go_to_source"                "Go To Source"                                "Goes to the source code, if any, for a given disassembly line."                                                   "code,source,disassembly,disasm" }
   
   //- rjf: override file links
   {SetFileOverrideLinkSrc         1            Null               Nil                0  0  0  0  0  0                                                           Null                  "set_file_override_link_src"  "Set File Override Link Source"               "Sets the source path for an override file link."                                                                  ""                               }
   {SetFileOverrideLinkDst         1            Null               Nil                0  0  0  0  0  0                                                           Null                  "set_file_override_link_dst"  "Set File Override Link Destination"          "Sets the destination path for an override file link."                                                             ""                               }
   {SetFileReplacementPath         1            Null               Nil                0  0  0  0  0  0                                                           Null                  "set_file_replacement_path"   "Set File Replacement Path"                   "Sets the path which should be used as the replacement for the passed file."                                       ""                               }
   
+  //- rjf: auto view rules
+  {SetAutoViewRuleType            1            Null               Nil                0  0  0  0  0  0                                                           Null                  "set_auto_view_rule_type"     "Set Auto View Rule Type"                     "Sets the type for an auto view rule."                                                                             ""                               }
+  {SetAutoViewRuleViewRule        1            Null               Nil                0  0  0  0  0  0                                                           Null                  "set_auto_view_rule_view_rule""Set Auto View Rule View Rule"                "Sets the view rule string for an auto view rule."                                                                 ""                               }
+  
   //- rjf: setting config paths
-  {OpenUser                       0            FilePath           Nil                1  0  0  0  0  1                                                           Person                "open_user"                   "Open User"                                   "Opens a user file path, immediately loading it, and begins autosaving to it."                                     "load,user,profile,layout"       }
-  {OpenProfile                    0            FilePath           Nil                1  0  0  0  0  1                                                           Briefcase             "open_profile"                "Open Profile"                                "Opens a profile file path, immediately loading it, and begins autosaving to it."                                  "profile,project,session"        }
+  {OpenUser                       0            FilePath           Nil                1  0  0  0  0  1                                                           Person                "open_user"                   "Open User"                                   "Opens a user file path, immediately loading it, and begins autosaving to it."                                     "load,user,project,layout"       }
+  {OpenProject                    0            FilePath           Nil                1  0  0  0  0  1                                                           Briefcase             "open_project"                "Open Project"                                "Opens a project file path, immediately loading it, and begins autosaving to it."                                  "project,project,session"        }
+  {OpenRecentProject              0            Entity             RecentProject      0  0  0  0  0  1                                                           Briefcase             "open_recent_project"         "Open Recent Project"                         "Opens a recently used project file."                                                                              "project,project,session"        }
   
   //- rjf: loading/applying stateful config changes
   {ApplyUserData                  1            Null               Nil                0  0  0  0  0  0                                                           Null                  "apply_user_data"             "Apply User Data"                             "Applies user data from the active user file."                                                                     ""                               }
-  {ApplyProfileData               1            Null               Nil                0  0  0  0  0  0                                                           Null                  "apply_profile_data"          "Apply Profile Data"                          "Applies profile data from the active profile file."                                                               ""                               }
+  {ApplyProjectData               1            Null               Nil                0  0  0  0  0  0                                                           Null                  "apply_project_data"          "Apply Project Data"                          "Applies project data from the active project file."                                                               ""                               }
   
   //- rjf: writing config changes
   {WriteUserData                  1            Null               Nil                0  0  0  0  0  0                                                           Null                  "write_user_data"             "Write User Data"                             "Writes user data to the active user file."                                                                        ""                               }
-  {WriteProfileData               1            Null               Nil                0  0  0  0  0  0                                                           Null                  "write_profile_data"          "Write Profile Data"                          "Writes profile data to the active profile file."                                                                  ""                               }
+  {WriteProjectData               1            Null               Nil                0  0  0  0  0  0                                                           Null                  "write_project_data"          "Write Project Data"                          "Writes project data to the active project file."                                                                  ""                               }
+  
+  //- rjf: meta controls
+  {Edit                           0            Null               Nil                0  0  0  0  0  0                                                           Pencil                "edit"                        "Edit"                                        "Edits the current selection."                                                                                     ""                               }
+  {Accept                         0            Null               Nil                0  0  0  0  0  0                                                           CheckFilled           "accept"                      "Accept"                                      "Accepts current changes, or answers prompts in the affirmative."                                                  ""                               }
+  {Cancel                         0            Null               Nil                0  0  0  0  0  0                                                           X                     "cancel"                      "Cancel"                                      "Rejects current changes, exits temporary menus, or answers prompts in the negative."                              ""                               }
   
   //- rjf: directional movement & text controls
   {MoveLeft                       0            Null               Nil                0  0  0  0  0  0                                                           Null                  "move_left"                   "Move Left"                                   "Moves the cursor or selection left."                                                                              ""                               }
@@ -268,6 +278,8 @@ DF_CoreCmdTable://               |            |                  |              
   {MoveDownPageSelect             0            Null               Nil                0  0  0  0  0  0                                                           Null                  "move_down_page_select"       "Move Down Page Select"                       "Moves the cursor or selection down one page, while selecting."                                                    ""                               }
   {MoveUpWholeSelect              0            Null               Nil                0  0  0  0  0  0                                                           Null                  "move_up_whole_select"        "Move Up Whole Select"                        "Moves the cursor or selection to the beginning of the relevant content, while selecting."                         ""                               }
   {MoveDownWholeSelect            0            Null               Nil                0  0  0  0  0  0                                                           Null                  "move_down_whole_select"      "Move Down Whole Select"                      "Moves the cursor or selection to the end of the relevant content, while selecting."                               ""                               }
+  {MoveUpReorder                  0            Null               Nil                0  0  0  0  0  0                                                           Null                  "move_up_reorder"             "Move Up Reorder"                             "Moves the cursor or selection up, while swapping the currently selected element with that upward."                ""                               }
+  {MoveDownReorder                0            Null               Nil                0  0  0  0  0  0                                                           Null                  "move_down_reorder"           "Move Down Reorder"                           "Moves the cursor or selection down, while swapping the currently selected element with that downward."            ""                               }
   {MoveHome                       0            Null               Nil                0  0  0  0  0  0                                                           Null                  "move_home"                   "Move Home"                                   "Moves the cursor to the beginning of the line."                                                                   ""                               }
   {MoveEnd                        0            Null               Nil                0  0  0  0  0  0                                                           Null                  "move_end"                    "Move End"                                    "Moves the cursor to the end of the line."                                                                         ""                               }
   {MoveHomeSelect                 0            Null               Nil                0  0  0  0  0  0                                                           Null                  "move_home_select"            "Move Home Select"                            "Moves the cursor to the beginning of the line, while selecting."                                                  ""                               }
@@ -303,6 +315,7 @@ DF_CoreCmdTable://               |            |                  |              
   //- rjf: watch expressions
   {ToggleWatchExpression          0            Null               Nil                0  0  0  0  0  0                                                           Binoculars            "toggle_watch_expr"           "Toggle Watch Expression"                     "Adds or removes an expression to an opened watch view."                                                           ""                               }
   {ToggleWatchExpressionAtCursor  0            Null               Nil                0  0  0  0  0  0                                                           Binoculars            "toggle_watch_expr_at_cursor" "Toggle Watch Expression At Cursor"           "Adds or removes the expression that the cursor or selection is currently over to an opened watch view."           ""                               }
+  {ToggleWatchExpressionAtMouse   0            Null               Nil                0  0  0  0  0  0                                                           Binoculars            "toggle_watch_expr_at_mouse"  "Toggle Watch Expression At Mouse"            "Adds or removes the expression that the mouse is currently over to an opened watch view."                         ""                               }
   
   //- rjf: memory view parameterization
   {SetColumns                     0            Index              Nil                0  0  0  0  1  1                                                           Thumbnails            "set_columns"                 "Set Columns"                                 "Sets the number of columns for a memory view."                                                                    ""                               }
@@ -322,7 +335,7 @@ DF_CoreCmdTable://               |            |                  |              
   {DuplicateEntity                1            Null               Nil                0  0  0  0  0  0                                                           Null                  "duplicate_entity"            "Duplicate Entity"                            "Duplicates an entity."                                                                                            ""                               }
   
   //- rjf: breakpoints
-  {TextBreakpoint                 1            Null               Nil                0  0  0  0  0  0                                                           CircleFilled          "text_breakpoint"             "Text Breakpoint"                             "Places or removes a breakpoint on the specified line of source code."                                             ""                               }
+  {TextBreakpoint                 1            FilePath           Nil                0  0  0  0  0  0                                                           CircleFilled          "text_breakpoint"             "Text Breakpoint"                             "Places or removes a breakpoint on the specified line of source code."                                             ""                               }
   {AddressBreakpoint              0            VirtualAddr        Nil                0  0  0  0  1  1                                                           CircleFilled          "address_breakpoint"          "Address Breakpoint"                          "Places or removes a breakpoint on the specified address."                                                         ""                               }
   {FunctionBreakpoint             0            String             Nil                0  0  0  0  1  1                                                           CircleFilled          "function_breakpoint"         "Function Breakpoint"                         "Places or removes a breakpoint on the first address(es) of the specified function."                               ""                               }
   {ToggleBreakpointAtCursor       0            Null               Nil                0  0  0  0  0  0                                                           CircleFilled          "toggle_breakpoint_cursor"    "Toggle Breakpoint At Cursor"                 "Places or removes a breakpoint on the line on which the active cursor sits."                                      ""                               }
@@ -360,12 +373,14 @@ DF_CoreCmdTable://               |            |                  |              
   {ClearFilter                    0            Null               Nil                0  0  0  0  0  0                                                           Find                  "clear_filter"                "Clear Filter"                                "Clears the filter applied to the active view."                                                                    "sort,search,filter,find,clear"  }
   
   //- rjf: view drivers
+  {GettingStarted                 0            Null               Nil                0  0  0  0  0  0                                                           QuestionMark          "getting_started"             "Getting Started"                             "Opens the menu for information on getting started."                                                               "tutorial,help"                  }
   {Commands                       1            Null               Nil                0  0  0  0  0  0                                                           List                  "commands"                    "Commands"                                    "Opens the list of all commands."                                                                                  ""                               }
   {Target                         1            Null               Nil                0  0  0  0  0  0                                                           Target                "target"                      "Target"                                      "Opens the editor for a target."                                                                                   ""                               }
   {Targets                        0            Null               Nil                0  0  0  0  0  0                                                           Target                "targets"                     "Targets"                                     "Opens the list of all targets."                                                                                   ""                               }
   {FilePathMap                    0            Null               Nil                0  0  0  0  0  0                                                           FileOutline           "file_path_map"               "File Path Map"                               "Opens the file path mapping editor."                                                                              ""                               }
+  {AutoViewRules                  0            Null               Nil                0  0  0  0  0  0                                                           Binoculars            "auto_view_rules"             "Auto View Rules"                             "Opens the auto view rule editor."                                                                                 ""                               }
   {Scheduler                      0            Null               Nil                0  0  0  0  0  0                                                           Scheduler             "scheduler"                   "Scheduler"                                   "Opens the scheduler view, for process and thread controls."                                                       "threads,processes,targets"      }
-  {CallStack                      0            Null               Nil                0  0  0  0  0  0                                                           Thread                "call_stack"                  "Call Stack"                                  "Opens the call stack view."                                                                                       "callstack,thread"               }
+  {CallStack                      0            Null               Nil                0  0  0  0  0  0                                                           Thread                "call_stack"                  "Call Stack"                                  "Opens the call stack view."                                                                                       "callstack,thread,unwind"        }
   {Modules                        0            Null               Nil                0  0  0  0  0  0                                                           Module                "modules"                     "Modules"                                     "Opens the modules view."                                                                                          ""                               }
   {PendingEntity                  1            Null               Nil                0  0  0  0  0  0                                                           FileOutline           "pending_entity"              "Pending Entity"                              "Opens a view which waits for the passed entity to be completely loaded, then replaces itself with a new view."    ""                               }
   {Code                           1            Null               Nil                0  0  0  0  0  0                                                           FileOutline           "code"                        "Code"                                        "Opens the code view for an already-loaded file."                                                                  ""                               }
@@ -382,7 +397,7 @@ DF_CoreCmdTable://               |            |                  |              
   {Breakpoints                    0            Null               Nil                0  0  0  0  0  0                                                           CircleFilled          "breakpoints"                 "Breakpoints"                                 "Opens the breakpoints view."                                                                                      ""                               }
   {WatchPins                      0            Null               Nil                0  0  0  0  0  0                                                           Pin                   "watch_pins"                  "Watch Pins"                                  "Opens the watch pins view."                                                                                       ""                               }
   {ExceptionFilters               0            Null               Nil                0  0  0  0  0  0                                                           Gear                  "exception_filters"           "Exception Filters"                           "Opens the exception filters view."                                                                                "exceptions,filters"             }
-  {Theme                          0            Null               Nil                0  0  0  0  0  0                                                           Palette               "theme"                       "Theme"                                       "Opens the theme view."                                                                                            "theme,color,scheme,palette"     }
+  {Settings                       0            Null               Nil                0  0  0  0  0  0                                                           Gear                  "settings"                    "Settings"                                    "Opens the settings view."                                                                                         "theme,color,scheme,options"     }
   {PickFile                       1            FilePath           Nil                1  0  0  0  0  1                                                           FileOutline           "pick_file"                   "Pick File"                                   "Opens the file browser to pick a file."                                                                           ""                               }
   {PickFolder                     1            FilePath           Nil                0  1  0  0  0  1                                                           FolderOpenFilled      "pick_folder"                 "Pick Folder"                                 "Opens the file browser to pick a folder."                                                                         ""                               }
   {PickFileOrFolder               1            FilePath           Nil                1  1  0  0  0  1                                                           FileOutline           "pick_file_or_folder"         "Pick File/Folder"                            "Opens the file browser to pick a file or folder."                                                                 ""                               }
@@ -393,6 +408,7 @@ DF_CoreCmdTable://               |            |                  |              
   
   //- rjf: developer commands
   {ToggleDevMenu                  0            Null               Nil                0  0  0  0  0  0                                                           Null                  "toggle_dev_menu"             "Toggle Developer Menu"                       "Opens and closes the developer menu."                                                                             ""                               }
+  {LogMarker                      0            Null               Nil                0  0  0  0  0  0                                                           Null                  "log_marker"                  "Log Marker"                                  "Logs a marker in the application log, to denote specific points in time within the log."                          ""                               }
 }
 
 ////////////////////////////////
@@ -463,6 +479,11 @@ DF_CoreCmdTable://               |            |                  |              
 //                          rows, this stage offers the ability to build a ui
 //                          stretching over all of the rows.
 //
+// tab ui build, "tu"    -> when a view rule also wants to implement ui for a
+//                          dedicated tab, it can supply hooks for that as well
+//                          in which case an eval/view-rule can be opened in a
+//                          fully fledged, dedicated ui
+//
 // A few other bits are included for various ways in which a view rule may be
 // applied throughout the eval visualization pipeline. A list follows:
 //
@@ -482,25 +503,27 @@ DF_CoreCmdTable://               |            |                  |              
 // For any view rules in this layer which also have graphical features, they
 // are specified in both tables under the same name.
 
-@table(name  name_lower  string          ih  ex  er  vb                display_name                  docs    description)
+@table(name  name_lower  string          ih  ex  er  vb                display_name                  docs    schema                                                         description)
 DF_CoreViewRuleTable:
 {
-  {Null       null        ""              -   -   -   -                 ""                            -       ""                                                                                                                                                                           }
-  {Array      array       "array"         -   -   x   -                 "Array"                       x       "Specifies that a pointer points to N elements, rather than only 1."                                                                                                         }
-  {List       list        "list"          -   -   -   x                 "List"                        x       "Specifies that some struct, union, or class forms the top of a linked list, and the member which points at the following element in the list."                              }
-  {ByteSwap   bswap       "bswap"         x   -   x   -                 "Byte Swap"                   x       "Specifies that all integer primitives should be byte-swapped, such that their endianness is reversed."                                                                      }
-  {BaseDec    base_dec    "dec"           x   -   -   -                 "Decimal Base (Base 10)"      x       "Specifies that all integral evaluations should appear in base-10 form."                                                                                                     }
-  {BaseBin    base_bin    "bin"           x   -   -   -                 "Binary Base (Base 2)"        x       "Specifies that all integral evaluations should appear in base-2 form."                                                                                                      }
-  {BaseOct    base_oct    "oct"           x   -   -   -                 "Octal Base (Base 8)"         x       "Specifies that all integral evaluations should appear in base-8 form."                                                                                                      }
-  {BaseHex    base_hex    "hex"           x   -   -   -                 "Hexadecimal Base (Base 16)"  x       "Specifies that all integral evaluations should appear in base-16 form."                                                                                                     }
-  {Only       only        "only"          x   -   -   x                 "Only Specified Members"      x       "Specifies that only the specified members should appear in struct, union, or class evaluations."                                                                            }
-  {Omit       omit        "omit"          x   -   -   x                 "Omit Specified Members"      x       "Omits a list of member names from appearing in struct, union, or class evaluations."                                                                                        }
-  {NoAddr     no_addr     "no_addr"       x   -   -   -                 "Disable Address Values"      x       "Displays only what pointers point to, if possible, without the pointer's address value."                                                                                    }
-  {RGBA       rgba        "rgba"          -   x   -   x                 "Color (RGBA)"                x       "Displays as a color, interpreting the data as encoding R, G, B, and A values."                                                                                              }
-  {Text       text        "text"          -   x   -   x                 "Text"                        x       "Displays as text."                                                                                                                                                          }
-  {Disasm     disasm      "disasm"        -   x   -   x                 "Disassembly"                 x       "Displays as disassembled instructions, interpreting the data as raw machine code."                                                                                          }
-  {Bitmap     bitmap      "bitmap"        -   x   -   x                 "Bitmap"                      x       "Displays as a bitmap, interpreting the data as raw pixel data."                                                                                                             }
-  {Geo        geo         "geo"           -   x   -   x                 "Geometry"                    x       "Displays as geometry, interpreting the data as vertex data."                                                                                                                }
+  {Null       null        ""              -   -   -   -                 ""                            -       ""                                                             ""                                                                                                                                                                           }
+  {Array      array       "array"         -   -   x   -                 "Array"                       x       "x:{expr}"                                                     "Specifies that a pointer points to N elements, rather than only 1."                                                                                                         }
+  {Slice      slice       "slice"         -   -   x   -                 "Slice"                       x       ""                                                             "Specifies that a pointer within a struct, also containing an integer, points to the number of elements encoded by the integer."                                             }
+  {List       list        "list"          -   -   -   x                 "List"                        x       "x:{member}"                                                   "Specifies that some struct, union, or class forms the top of a linked list, and the member which points at the following element in the list."                              }
+  {ByteSwap   bswap       "bswap"         x   -   x   -                 "Byte Swap"                   x       ""                                                             "Specifies that all integer primitives should be byte-swapped, such that their endianness is reversed."                                                                      }
+  {BaseDec    base_dec    "dec"           x   -   -   -                 "Decimal Base (Base 10)"      x       ""                                                             "Specifies that all integral evaluations should appear in base-10 form."                                                                                                     }
+  {BaseBin    base_bin    "bin"           x   -   -   -                 "Binary Base (Base 2)"        x       ""                                                             "Specifies that all integral evaluations should appear in base-2 form."                                                                                                      }
+  {BaseOct    base_oct    "oct"           x   -   -   -                 "Octal Base (Base 8)"         x       ""                                                             "Specifies that all integral evaluations should appear in base-8 form."                                                                                                      }
+  {BaseHex    base_hex    "hex"           x   -   -   -                 "Hexadecimal Base (Base 16)"  x       ""                                                             "Specifies that all integral evaluations should appear in base-16 form."                                                                                                     }
+  {Only       only        "only"          x   -   -   x                 "Only Specified Members"      x       "x:{member}"                                                   "Specifies that only the specified members should appear in struct, union, or class evaluations."                                                                            }
+  {Omit       omit        "omit"          x   -   -   x                 "Omit Specified Members"      x       "x:{member}"                                                   "Omits a list of member names from appearing in struct, union, or class evaluations."                                                                                        }
+  {NoAddr     no_addr     "no_addr"       x   -   -   -                 "Disable Address Values"      x       ""                                                             "Displays only what pointers point to, if possible, without the pointer's address value."                                                                                    }
+  {RGBA       rgba        "rgba"          -   x   -   x                 "Color (RGBA)"                x       ""                                                             "Displays as a color, interpreting the data as encoding R, G, B, and A values."                                                                                              }
+  {Text       text        "text"          -   x   -   x                 "Text"                        x       "x:{'lang':lang, 'size':expr}"                                 "Displays as text."                                                                                                                                                          }
+  {Disasm     disasm      "disasm"        -   x   -   x                 "Disassembly"                 x       "x:{'arch':arch, 'size':expr}"                                 "Displays as disassembled instructions, interpreting the data as raw machine code."                                                                                          }
+  {Graph      graph       "graph"         -   x   -   x                 "Graph"                       x       ""                                                             "Displays as a pointer graph, visualizing nodes and edges formed by pointers directly."                                                                                      }
+  {Bitmap     bitmap      "bitmap"        -   x   -   x                 "Bitmap"                      x       "x:{'w':expr, 'h':expr, 'fmt':tex2dformat}"                    "Displays as a bitmap, interpreting the data as raw pixel data."                                                                                                             }
+  {Geo        geo         "geo"           -   x   -   x                 "Geometry"                    x       "x:{'count':expr, 'vertices_base':expr, 'vertices_size':expr}" "Displays as geometry, interpreting the data as vertex data."                                                                                                                }
 }
 
 ////////////////////////////////
@@ -1700,12 +1723,6 @@ DF_DevToggleTable:
   COUNT,
 }
 
-@enum DF_NameKind:
-{
-  @expand(DF_NameKindTable, a) `$(a.name)`,
-  COUNT,
-}
-
 @enum DF_CoreCmdKind:
 {
   @expand(DF_CoreCmdTable, a) `$(a.name)`,
@@ -1764,7 +1781,7 @@ DF_DevToggleTable:
 
 @data(DF_EntityKindFlags) df_g_entity_kind_flags_table:
 {
-  @expand(DF_EntityKindTable a) `($(a.lf_mut_user_cfg)*DF_EntityKindFlag_LeafMutationUserConfig | $(a.lf_mut_prof_cfg)*DF_EntityKindFlag_LeafMutationProfileConfig | $(a.lf_mut_halt)*DF_EntityKindFlag_LeafMutationSoftHalt | $(a.lf_mut_dbg)*DF_EntityKindFlag_LeafMutationDebugInfoMap | $(a.tr_mut_user_cfg)*DF_EntityKindFlag_TreeMutationUserConfig | $(a.tr_mut_prof_cfg)*DF_EntityKindFlag_TreeMutationProfileConfig | $(a.tr_mut_halt)*DF_EntityKindFlag_TreeMutationSoftHalt | $(a.tr_mut_dbg)*DF_EntityKindFlag_TreeMutationDebugInfoMap | $(a.name_is_code)*DF_EntityKindFlag_NameIsCode | $(a.user_lifetime)*DF_EntityKindFlag_UserDefinedLifetime)`,
+  @expand(DF_EntityKindTable a) `($(a.lf_mut_user_cfg)*DF_EntityKindFlag_LeafMutationUserConfig | $(a.lf_mut_prof_cfg)*DF_EntityKindFlag_LeafMutationProjectConfig | $(a.lf_mut_halt)*DF_EntityKindFlag_LeafMutationSoftHalt | $(a.lf_mut_dbg)*DF_EntityKindFlag_LeafMutationDebugInfoMap | $(a.tr_mut_user_cfg)*DF_EntityKindFlag_TreeMutationUserConfig | $(a.tr_mut_prof_cfg)*DF_EntityKindFlag_TreeMutationProjectConfig | $(a.tr_mut_halt)*DF_EntityKindFlag_TreeMutationSoftHalt | $(a.tr_mut_dbg)*DF_EntityKindFlag_TreeMutationDebugInfoMap | $(a.name_is_code)*DF_EntityKindFlag_NameIsCode | $(a.user_lifetime)*DF_EntityKindFlag_UserDefinedLifetime)`,
 }
 
 @data(DF_EntityOpFlags) df_g_entity_kind_op_flags_table:
@@ -1815,7 +1832,7 @@ DF_DevToggleTable:
 @data(DF_CoreViewRuleSpecInfo) @c_file df_g_core_view_rule_spec_info_table:
 {
   @expand(DF_CoreViewRuleTable a)
-    ```{str8_lit_comp("$(a.string)"), str8_lit_comp("$(a.display_name)"), str8_lit_comp("$(a.description)"), (DF_CoreViewRuleSpecInfoFlag_Inherited*$(a.ih == "x"))|(DF_CoreViewRuleSpecInfoFlag_Expandable*$(a.ex == "x"))|(DF_CoreViewRuleSpecInfoFlag_EvalResolution*$(a.er == "x"))|(DF_CoreViewRuleSpecInfoFlag_VizBlockProd*$(a.vb == "x")), $(a.er == "x" -> "DF_CORE_VIEW_RULE_EVAL_RESOLUTION_FUNCTION_NAME("..a.name_lower..")") $(a.er != "x" -> 0), $(a.vb == "x" -> "DF_CORE_VIEW_RULE_VIZ_BLOCK_PROD_FUNCTION_NAME("..a.name_lower..")") $(a.vb != "x" -> 0), }```;
+    ```{str8_lit_comp("$(a.string)"), str8_lit_comp("$(a.display_name)"), str8_lit_comp("$(a.schema)"), str8_lit_comp("$(a.description)"), (DF_CoreViewRuleSpecInfoFlag_Inherited*$(a.ih == "x"))|(DF_CoreViewRuleSpecInfoFlag_Expandable*$(a.ex == "x"))|(DF_CoreViewRuleSpecInfoFlag_EvalResolution*$(a.er == "x"))|(DF_CoreViewRuleSpecInfoFlag_VizBlockProd*$(a.vb == "x")), $(a.er == "x" -> "DF_CORE_VIEW_RULE_EVAL_RESOLUTION_FUNCTION_NAME("..a.name_lower..")") $(a.er != "x" -> 0), $(a.vb == "x" -> "DF_CORE_VIEW_RULE_VIZ_BLOCK_PROD_FUNCTION_NAME("..a.name_lower..")") $(a.vb != "x" -> 0), }```;
 }
 
 //- rjf: icon kinds

@@ -274,6 +274,9 @@ type_coverage_eval_tests(void){
     "With multiple lines in it\r\n"
     "\t> What ways might it be rendered?\n"
     "\t> How would it deal with line endings?\r\n";
+  wchar_t a_wide_string[] =
+    L"This is a string, but instead of being encoded in a stream of bytes,\n"
+    L"it is encoded in a stream of 2-byte packages!\n";
   
   void *pointer = &basics;
   Basics *pointer_to_basics = &basics;
@@ -322,6 +325,9 @@ type_coverage_eval_tests(void){
     swea.pairs[5].y = 623.f;
     swea.z = 'z';
   }
+  
+  Struct_With_Embedded_Arrays *swea_ptr = &swea;
+  int access_via_ptr_member = swea_ptr->x;
   
   Custom_Index_Type custom_index = 42;
   Custom_Index_Type more_custom_indices[] = {
@@ -1509,6 +1515,34 @@ extern "C"{
 }
 
 ////////////////////////////////
+//~ rjf: Basic Inline Line Info Tests
+
+#if defined(_MSC_VER)
+# define FORCE_INLINE __forceinline
+#elif defined(__clang__)
+# define FORCE_INLINE  __attribute__((always_inline))
+#else
+# error need force inline for this compiler
+#endif
+
+static FORCE_INLINE void
+basic_inlinee(int inlinee_param_x, int inlinee_param_y, int inlinee_param_z)
+{
+  OutputDebugStringA("A\n");
+  OutputDebugStringA("B\n");
+  OutputDebugStringA("C\n");
+  OutputDebugStringA("D\n");
+}
+
+static void
+basic_inline_tests(void)
+{
+  OutputDebugStringA("{\n");
+  basic_inlinee(12, 34, 56);
+  OutputDebugStringA("}\n");
+}
+
+////////////////////////////////
 //~ rjf: Fancy Visualization Eval Tests
 
 static unsigned int
@@ -2263,6 +2297,14 @@ debug_string_tests(void)
   {
     OutputDebugStringA("Hello, World!\n");
   }
+  char message[65409+1];
+	memset(&message[0], '=', sizeof(message));
+	for(int i = 1; i < sizeof(message); i += 128)
+	{
+		message[i] = '\n';
+	}
+	message[sizeof(message) - 1] = 0;
+  OutputDebugStringA(message);
 #endif
 }
 
@@ -2274,6 +2316,10 @@ debug_string_tests(void)
 static void
 interrupt_stepping_tests(void)
 {
+  __debugbreak();
+  __debugbreak();
+  __debugbreak();
+  __debugbreak();
   for(int i = 0; i < 1000; i += 1)
   {
     if(i == 999)
@@ -2289,6 +2335,19 @@ interrupt_stepping_tests(void)
     }
   }
   int x = 0;
+}
+
+////////////////////////////////
+//~ rjf: JIT Stepping Tests
+
+static void
+jit_stepping_tests(void)
+{
+  OutputDebugString("A\n");
+  VOID *code = VirtualAlloc(0, 0x1000, MEM_COMMIT|MEM_RESERVE, PAGE_EXECUTE_READWRITE);
+  *((uint32_t*)code) = 0xC39090CC;
+  ((void (__fastcall *)()) code)();
+  OutputDebugString("B\n");
 }
 
 ////////////////////////////////
@@ -2572,6 +2631,8 @@ mule_main(int argc, char** argv){
   
   alloca_stepping_tests();
   
+  basic_inline_tests();
+  
   inline_stepping_tests();
   
   overloaded_line_stepping_tests();
@@ -2585,6 +2646,8 @@ mule_main(int argc, char** argv){
   recursion_stepping_tests();
   
   debug_string_tests();
+  
+  jit_stepping_tests();
   
   interrupt_stepping_tests();
   

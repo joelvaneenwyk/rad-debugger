@@ -41,9 +41,13 @@ typedef PVOID W32_MapViewOfFile3_Type(HANDLE  FileMapping,
                                       ULONG   PageProtection,
                                       void*   ExtendedParameters,
                                       ULONG   ParameterCount);
+typedef HRESULT W32_SetThreadDescription_Type(HANDLE hThread,
+                                              PCWSTR lpThreadDescription);
 
 global W32_VirtualAlloc2_Type  *w32_VirtualAlloc2_func  = 0;
 global W32_MapViewOfFile3_Type *w32_MapViewOfFile3_func = 0;
+
+global W32_SetThreadDescription_Type *w32_SetThreadDescription_func = 0;
 
 ////////////////////////////////
 //~ rjf: Globals
@@ -193,6 +197,8 @@ os_init(void)
     if (module != 0){
       w32_VirtualAlloc2_func = (W32_VirtualAlloc2_Type*)GetProcAddress(module, "VirtualAlloc2");
       w32_MapViewOfFile3_func = (W32_MapViewOfFile3_Type*)GetProcAddress(module, "MapViewOfFile3");
+      w32_SetThreadDescription_func = (W32_SetThreadDescription_Type*)GetProcAddress(module, "SetThreadDescription");
+      
       FreeLibrary(module);
     }
   }
@@ -217,7 +223,7 @@ os_init(void)
   
   // rjf: setup environment variables
   {
-    CHAR *this_proc_env = GetEnvironmentStrings();
+    WCHAR *this_proc_env = GetEnvironmentStringsW();
     U64 start_idx = 0;
     for(U64 idx = 0;; idx += 1)
     {
@@ -229,7 +235,8 @@ os_init(void)
         }
         else
         {
-          String8 string = str8((U8 *)this_proc_env + start_idx, idx - start_idx);
+          String16 string16 = str16((U16 *)this_proc_env + start_idx, idx - start_idx);
+          String8 string = str8_from_16(w32_perm_arena, string16);
           str8_list_push(w32_perm_arena, &w32_environment, string);
           start_idx = idx+1;
         }
@@ -596,9 +603,10 @@ os_set_thread_name(String8 name)
   Temp scratch = scratch_begin(0, 0);
   
   // rjf: windows 10 style
+  if(w32_SetThreadDescription_func)
   {
     String16 name16 = str16_from_8(scratch.arena, name);
-    HRESULT hr = SetThreadDescription(GetCurrentThread(), (WCHAR*)name16.str);
+    HRESULT hr = w32_SetThreadDescription_func(GetCurrentThread(), (WCHAR*)name16.str);
   }
   
   // rjf: raise-exception style
@@ -661,8 +669,9 @@ os_file_open(OS_AccessFlags flags, String8 path)
   if(flags & OS_AccessFlag_Write)   {access_flags |= GENERIC_WRITE;}
   if(flags & OS_AccessFlag_Execute) {access_flags |= GENERIC_EXECUTE;}
   if(flags & OS_AccessFlag_ShareRead)  {share_mode |= FILE_SHARE_READ;}
-  if(flags & OS_AccessFlag_ShareWrite) {share_mode |= FILE_SHARE_WRITE;}
+  if(flags & OS_AccessFlag_ShareWrite) {share_mode |= FILE_SHARE_WRITE|FILE_SHARE_DELETE;}
   if(flags & OS_AccessFlag_Write)   {creation_disposition = CREATE_ALWAYS;}
+  if(flags & OS_AccessFlag_Append)  {creation_disposition = OPEN_ALWAYS;}
   HANDLE file = CreateFileW((WCHAR *)path16.str, access_flags, share_mode, 0, creation_disposition, FILE_ATTRIBUTE_NORMAL, 0);
   if(file != INVALID_HANDLE_VALUE)
   {
@@ -677,7 +686,8 @@ os_file_close(OS_Handle file)
 {
   if(os_handle_match(file, os_handle_zero())) { return; }
   HANDLE handle = (HANDLE)file.u64[0];
-  CloseHandle(handle);
+  BOOL result = CloseHandle(handle);
+  (void)result;
 }
 
 internal U64
@@ -895,7 +905,8 @@ internal void
 os_file_map_close(OS_Handle map)
 {
   HANDLE handle = (HANDLE)map.u64[0];
-  CloseHandle(handle);
+  BOOL result = CloseHandle(handle);
+  (void)result;
 }
 
 internal void *
@@ -938,7 +949,8 @@ os_file_map_view_open(OS_Handle map, OS_AccessFlags flags, Rng1U64 range)
 internal void
 os_file_map_view_close(OS_Handle map, void *ptr)
 {
-  UnmapViewOfFile(ptr);
+  BOOL result = UnmapViewOfFile(ptr);
+  (void)result;
 }
 
 //- rjf: directory iteration
@@ -952,7 +964,27 @@ os_file_iter_begin(Arena *arena, String8 path, OS_FileIterFlags flags)
   OS_FileIter *iter = push_array(arena, OS_FileIter, 1);
   iter->flags = flags;
   W32_FileIter *w32_iter = (W32_FileIter*)iter->memory;
-  w32_iter->handle = FindFirstFileW((WCHAR*)path16.str, &w32_iter->find_data);
+  if(path.size == 0)
+  {
+    w32_iter->is_volume_iter = 1;
+    WCHAR buffer[512] = {0};
+    DWORD length = GetLogicalDriveStringsW(sizeof(buffer), buffer);
+    String8List drive_strings = {0};
+    for(U64 off = 0; off < (U64)length;)
+    {
+      String16 next_drive_string_16 = str16_cstring((U16 *)buffer+off);
+      off += next_drive_string_16.size+1;
+      String8 next_drive_string = str8_from_16(arena, next_drive_string_16);
+      next_drive_string = str8_chop_last_slash(next_drive_string);
+      str8_list_push(scratch.arena, &drive_strings, next_drive_string);
+    }
+    w32_iter->drive_strings = str8_array_from_list(arena, &drive_strings);
+    w32_iter->drive_strings_iter_idx = 0;
+  }
+  else
+  {
+    w32_iter->handle = FindFirstFileW((WCHAR*)path16.str, &w32_iter->find_data);
+  }
   scratch_end(scratch);
   return iter;
 }
@@ -963,55 +995,76 @@ os_file_iter_next(Arena *arena, OS_FileIter *iter, OS_FileInfo *info_out)
   B32 result = 0;
   OS_FileIterFlags flags = iter->flags;
   W32_FileIter *w32_iter = (W32_FileIter*)iter->memory;
-  if (!(flags & OS_FileIterFlag_Done) && w32_iter->handle != INVALID_HANDLE_VALUE)
+  switch(w32_iter->is_volume_iter)
   {
-    do
+    //- rjf: file iteration
+    default:
+    case 0:
     {
-      // check is usable
-      B32 usable_file = 1;
-      
-      WCHAR *file_name = w32_iter->find_data.cFileName;
-      DWORD attributes = w32_iter->find_data.dwFileAttributes;
-      if (file_name[0] == '.'){
-        if (flags & OS_FileIterFlag_SkipHiddenFiles){
-          usable_file = 0;
-        }
-        else if (file_name[1] == 0){
-          usable_file = 0;
-        }
-        else if (file_name[1] == '.' && file_name[2] == 0){
-          usable_file = 0;
-        }
+      if (!(flags & OS_FileIterFlag_Done) && w32_iter->handle != INVALID_HANDLE_VALUE)
+      {
+        do
+        {
+          // check is usable
+          B32 usable_file = 1;
+          
+          WCHAR *file_name = w32_iter->find_data.cFileName;
+          DWORD attributes = w32_iter->find_data.dwFileAttributes;
+          if (file_name[0] == '.'){
+            if (flags & OS_FileIterFlag_SkipHiddenFiles){
+              usable_file = 0;
+            }
+            else if (file_name[1] == 0){
+              usable_file = 0;
+            }
+            else if (file_name[1] == '.' && file_name[2] == 0){
+              usable_file = 0;
+            }
+          }
+          if (attributes & FILE_ATTRIBUTE_DIRECTORY){
+            if (flags & OS_FileIterFlag_SkipFolders){
+              usable_file = 0;
+            }
+          }
+          else{
+            if (flags & OS_FileIterFlag_SkipFiles){
+              usable_file = 0;
+            }
+          }
+          
+          // emit if usable
+          if (usable_file){
+            info_out->name = str8_from_16(arena, str16_cstring((U16*)file_name));
+            info_out->props.size = (U64)w32_iter->find_data.nFileSizeLow | (((U64)w32_iter->find_data.nFileSizeHigh)<<32);
+            w32_dense_time_from_file_time(&info_out->props.created,  &w32_iter->find_data.ftCreationTime);
+            w32_dense_time_from_file_time(&info_out->props.modified, &w32_iter->find_data.ftLastWriteTime);
+            info_out->props.flags = w32_file_property_flags_from_dwFileAttributes(attributes);
+            result = 1;
+            if (!FindNextFileW(w32_iter->handle, &w32_iter->find_data)){
+              iter->flags |= OS_FileIterFlag_Done;
+            }
+            break;
+          }
+        }while(FindNextFileW(w32_iter->handle, &w32_iter->find_data));
       }
-      if (attributes & FILE_ATTRIBUTE_DIRECTORY){
-        if (flags & OS_FileIterFlag_SkipFolders){
-          usable_file = 0;
-        }
-      }
-      else{
-        if (flags & OS_FileIterFlag_SkipFiles){
-          usable_file = 0;
-        }
-      }
-      
-      // emit if usable
-      if (usable_file){
-        info_out->name = str8_from_16(arena, str16_cstring((U16*)file_name));
-        info_out->props.size = (U64)w32_iter->find_data.nFileSizeLow | (((U64)w32_iter->find_data.nFileSizeHigh)<<32);
-        w32_dense_time_from_file_time(&info_out->props.created,  &w32_iter->find_data.ftCreationTime);
-        w32_dense_time_from_file_time(&info_out->props.modified, &w32_iter->find_data.ftLastWriteTime);
-        info_out->props.flags = w32_file_property_flags_from_dwFileAttributes(attributes);
-        result = 1;
-        if (!FindNextFileW(w32_iter->handle, &w32_iter->find_data)){
-          iter->flags |= OS_FileIterFlag_Done;
-        }
-        break;
-      }
-    }while(FindNextFileW(w32_iter->handle, &w32_iter->find_data));
+    }break;
     
-    if (!result){
-      iter->flags |= OS_FileIterFlag_Done;
-    }
+    //- rjf: volume iteration
+    case 1:
+    {
+      result = w32_iter->drive_strings_iter_idx < w32_iter->drive_strings.count;
+      if(result != 0)
+      {
+        MemoryZeroStruct(info_out);
+        info_out->name = w32_iter->drive_strings.v[w32_iter->drive_strings_iter_idx];
+        info_out->props.flags |= FilePropertyFlag_IsFolder;
+        w32_iter->drive_strings_iter_idx += 1;
+      }
+    }break;
+  }
+  if(!result)
+  {
+    iter->flags |= OS_FileIterFlag_Done;
   }
   return result;
 }
@@ -1223,7 +1276,7 @@ os_launch_process(OS_LaunchOptions *options, OS_Handle *handle_out){
     env16 = str16_from_8(scratch.arena, env);
   }
   
-  DWORD creation_flags = 0;
+  DWORD creation_flags = CREATE_UNICODE_ENVIRONMENT;
   if(options->consoleless)
   {
     creation_flags |= CREATE_NO_WINDOW;
@@ -1647,7 +1700,7 @@ win32_exception_filter(EXCEPTION_POINTERS* exception_ptrs)
         if(!raddbg_pdb_valid)
         {
           buflen += wnsprintfW(buffer + buflen, sizeof(buffer) - buflen,
-                               L"\nThe PDB debug information file for this executable is not valid or was not found. Please rebuild binary to get call stack.\n");
+                               L"\nThe PDB debug information file for this executable is not valid or was not found. Please rebuild binary to get the call stack.\n");
         }
         else
         {
@@ -1695,9 +1748,13 @@ win32_exception_filter(EXCEPTION_POINTERS* exception_ptrs)
             
             if(idx==0)
             {
+#if BUILD_CONSOLE_INTERFACE
+              buflen += wnsprintfW(buffer + buflen, ArrayCount(buffer) - buflen, L"\nCreate a new issue with this report at %S.\n\n", BUILD_ISSUES_LINK_STRING_LITERAL);
+#else
               buflen += wnsprintfW(buffer + buflen, ArrayCount(buffer) - buflen,
-                                   L"\nPress Ctrl+C to copy this text to clipboard, then create a new issue in\n"
+                                   L"\nPress Ctrl+C to copy this text to clipboard, then create a new issue at\n"
                                    L"<a href=\"%S\">%S</a>\n\n", BUILD_ISSUES_LINK_STRING_LITERAL, BUILD_ISSUES_LINK_STRING_LITERAL);
+#endif
               buflen += wnsprintfW(buffer + buflen, ArrayCount(buffer) - buflen, L"Call stack:\n");
             }
             
@@ -1744,6 +1801,10 @@ win32_exception_filter(EXCEPTION_POINTERS* exception_ptrs)
   
   buflen += wnsprintfW(buffer + buflen, ArrayCount(buffer) - buflen, L"\nVersion: %S%S", BUILD_VERSION_STRING_LITERAL, BUILD_GIT_HASH_STRING_LITERAL_APPEND);
   
+#if BUILD_CONSOLE_INTERFACE
+  fwprintf(stderr, L"\n--- Fatal Exception ---\n");
+  fwprintf(stderr, L"%s\n\n", buffer);
+#else
   TASKDIALOGCONFIG dialog = {0};
   dialog.cbSize = sizeof(dialog);
   dialog.dwFlags = TDF_SIZE_TO_CONTENT | TDF_ENABLE_HYPERLINKS | TDF_ALLOW_DIALOG_CANCELLATION;
@@ -1753,6 +1814,7 @@ win32_exception_filter(EXCEPTION_POINTERS* exception_ptrs)
   dialog.pszContent = buffer;
   dialog.pfCallback = &win32_dialog_callback;
   TaskDialogIndirect(&dialog, 0, 0, 0);
+#endif
   
   ExitProcess(1);
 }
@@ -1760,36 +1822,35 @@ win32_exception_filter(EXCEPTION_POINTERS* exception_ptrs)
 #undef OS_WINDOWS // shlwapi uses its own OS_WINDOWS include inside
 #define OS_WINDOWS 1
 
-#if BUILD_CONSOLE_INTERFACE
-int main(int argc, char **argv)
+internal void
+w32_entry_point_caller(int argc, WCHAR **wargv)
 {
   SetUnhandledExceptionFilter(&win32_exception_filter);
+  Arena *args_arena = arena_alloc__sized(MB(1), KB(32));
+  char **argv = push_array(args_arena, char *, argc);
   for(int i = 0; i < argc; i += 1)
   {
-    String8 arg8 = str8_cstring(argv[i]);
+    String16 arg16 = str16_cstring((U16 *)wargv[i]);
+    String8 arg8 = str8_from_16(args_arena, arg16);
     if(str8_match(arg8, str8_lit("--quiet"), StringMatchFlag_CaseInsensitive))
     {
       win32_g_is_quiet = 1;
     }
+    argv[i] = (char *)arg8.str;
   }
   main_thread_base_entry_point(entry_point, argv, (U64)argc);
+}
+
+#if BUILD_CONSOLE_INTERFACE
+int wmain(int argc, WCHAR **argv)
+{
+  w32_entry_point_caller(argc, argv);
   return 0;
 }
 #else
-int WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nShowCmd)
+int wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPWSTR lpCmdLine, int nShowCmd)
 {
-  SetUnhandledExceptionFilter(&win32_exception_filter);
-  char **argv = __argv;
-  int argc = __argc;
-  for(int i = 0; i < argc; i += 1)
-  {
-    String8 arg8 = str8_cstring(argv[i]);
-    if(str8_match(arg8, str8_lit("--quiet"), StringMatchFlag_CaseInsensitive))
-    {
-      win32_g_is_quiet = 1;
-    }
-  }
-  main_thread_base_entry_point(entry_point, argv, (U64)argc);
+  w32_entry_point_caller(__argc, __wargv);
   return 0;
 }
 #endif

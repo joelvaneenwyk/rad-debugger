@@ -168,6 +168,8 @@
 #  define ins_atomic_u64_dec_eval(x) InterlockedDecrement64((volatile __int64 *)(x))
 #  define ins_atomic_u64_eval_assign(x,c) InterlockedExchange64((volatile __int64 *)(x),(c))
 #  define ins_atomic_u64_add_eval(x,c) InterlockedAdd64((volatile __int64 *)(x), c)
+#  define ins_atomic_u64_eval_cond_assign(x,k,c) InterlockedCompareExchange64((volatile __int64 *)(x),(k),(c))
+#  define ins_atomic_u32_eval(x,c) InterlockedAdd((volatile LONG *)(x), 0)
 #  define ins_atomic_u32_eval_assign(x,c) InterlockedExchange((volatile LONG *)(x),(c))
 #  define ins_atomic_u32_eval_cond_assign(x,k,c) InterlockedCompareExchange((volatile LONG *)(x),(k),(c))
 #  define ins_atomic_ptr_eval_assign(x,c) (void*)ins_atomic_u64_eval_assign((volatile __int64 *)(x), (__int64)(c))
@@ -388,6 +390,19 @@ typedef enum Corner
   Corner_COUNT
 }
 Corner;
+
+typedef enum Dir2
+{
+  Dir2_Invalid = -1,
+  Dir2_Left,
+  Dir2_Up,
+  Dir2_Right,
+  Dir2_Down,
+  Dir2_COUNT
+}
+Dir2;
+#define axis2_from_dir2(d) (((d) & 1) ? Axis2_Y : Axis2_X)
+#define side_from_dir2(d) (((d) < Dir2_Right) ? Side_Min : Side_Max)
 
 ////////////////////////////////
 //~ rjf: Toolchain/Environment Enums
@@ -737,6 +752,7 @@ internal TxtPt txt_pt_max(TxtPt a, TxtPt b);
 internal TxtRng txt_rng(TxtPt min, TxtPt max);
 internal TxtRng txt_rng_intersect(TxtRng a, TxtRng b);
 internal TxtRng txt_rng_union(TxtRng a, TxtRng b);
+internal B32 txt_rng_contains(TxtRng r, TxtPt pt);
 
 ////////////////////////////////
 //~ rjf: Toolchain/Environment Enum Functions
@@ -762,5 +778,10 @@ internal U64 ring_write(U8 *ring_base, U64 ring_size, U64 ring_pos, void *src_da
 internal U64 ring_read(U8 *ring_base, U64 ring_size, U64 ring_pos, void *dst_data, U64 read_size);
 #define ring_write_struct(ring_base, ring_size, ring_pos, ptr) ring_write((ring_base), (ring_size), (ring_pos), (ptr), sizeof(*(ptr)))
 #define ring_read_struct(ring_base, ring_size, ring_pos, ptr) ring_read((ring_base), (ring_size), (ring_pos), (ptr), sizeof(*(ptr)))
+
+////////////////////////////////
+//~ rjf: Sorts
+
+#define quick_sort(ptr, count, element_size, cmp_function) qsort((ptr), (count), (element_size), (int (*)(const void *, const void *))(cmp_function))
 
 #endif // BASE_CORE_H

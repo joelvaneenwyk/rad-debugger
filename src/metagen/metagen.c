@@ -137,7 +137,7 @@ mg_escaped_from_str8(Arena *arena, String8 string)
   U64 start = 0;
   for(U64 idx = 0; idx <= string.size; idx += 1)
   {
-    if(idx == string.size || string.str[idx] == '\\')
+    if(idx == string.size || string.str[idx] == '\\' || string.str[idx] == '\r')
     {
       String8 str = str8_substr(string, r1u64(start, idx));
       if(str.size != 0)
@@ -372,7 +372,7 @@ mg_str_expr_parse_from_first_opl__min_prec(Arena *arena, MD_Node *first, MD_Node
     
     //- rjf: consume prefix operators
     MG_StrExpr *leafmost_op = &mg_str_expr_nil;
-    for(;it < opl && !md_node_is_nil(it);)
+    for(;it != opl && !md_node_is_nil(it);)
     {
       MG_StrExprOp found_op = MG_StrExprOp_Null;
       for(MG_StrExprOp op = (MG_StrExprOp)(MG_StrExprOp_Null+1);
@@ -431,7 +431,7 @@ mg_str_expr_parse_from_first_opl__min_prec(Arena *arena, MD_Node *first, MD_Node
     }
     
     //- rjf: parse binary operator extensions at this precedence level
-    for(;it < opl && !md_node_is_nil(it);)
+    for(;it != opl && !md_node_is_nil(it);)
     {
       // rjf: find binary op kind of `it`
       MG_StrExprOp found_op = MG_StrExprOp_Null;
@@ -1026,7 +1026,12 @@ mg_string_list_from_table_gen(Arena *arena, MG_Map grid_name_map, MG_Map grid_co
 {
   String8List result = {0};
   Temp scratch = scratch_begin(&arena, 1);
-  for(MD_EachNode(strexpr_node, gen->first))
+  if(md_node_is_nil(gen->first) && gen->string.size != 0)
+  {
+    str8_list_push(arena, &result, gen->string);
+    str8_list_push(arena, &result, str8_lit("\n"));
+  }
+  else for(MD_EachNode(strexpr_node, gen->first))
   {
     // rjf: build task list
     MG_TableExpandTask *first_task = 0;

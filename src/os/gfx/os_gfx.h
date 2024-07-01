@@ -7,6 +7,12 @@
 ////////////////////////////////
 //~ rjf: Window Types
 
+typedef U32 OS_WindowFlags;
+enum
+{
+  OS_WindowFlag_CustomBorder = (1<<0),
+};
+
 typedef void OS_WindowRepaintFunctionType(OS_Handle window, void *user_data);
 
 ////////////////////////////////
@@ -112,7 +118,7 @@ internal String8        os_get_clipboard_text(Arena *arena);
 ////////////////////////////////
 //~ rjf: @os_hooks Windows (Implemented Per-OS)
 
-internal OS_Handle      os_window_open(Vec2F32 resolution, String8 title);
+internal OS_Handle      os_window_open(Vec2F32 resolution, OS_WindowFlags flags, String8 title);
 internal void           os_window_close(OS_Handle window);
 internal void           os_window_first_paint(OS_Handle window);
 internal void           os_window_equip_repaint(OS_Handle window, OS_WindowRepaintFunctionType *repaint, void *user_data);
@@ -122,8 +128,13 @@ internal B32            os_window_is_fullscreen(OS_Handle window);
 internal void           os_window_set_fullscreen(OS_Handle window, B32 fullscreen);
 internal B32            os_window_is_maximized(OS_Handle window);
 internal void           os_window_set_maximized(OS_Handle window, B32 maximized);
+internal void           os_window_minimize(OS_Handle window);
 internal void           os_window_bring_to_front(OS_Handle window);
 internal void           os_window_set_monitor(OS_Handle window, OS_Handle monitor);
+internal void           os_window_clear_custom_border_data(OS_Handle handle);
+internal void           os_window_push_custom_title_bar(OS_Handle handle, F32 thickness);
+internal void           os_window_push_custom_edges(OS_Handle handle, F32 thickness);
+internal void           os_window_push_custom_title_bar_client_area(OS_Handle handle, Rng2F32 rect);
 internal Rng2F32        os_rect_from_window(OS_Handle window);
 internal Rng2F32        os_client_rect_from_window(OS_Handle window);
 internal F32            os_dpi_from_window(OS_Handle window);
@@ -159,8 +170,13 @@ internal F32            os_caret_blink_time(void);
 internal F32            os_default_refresh_rate(void);
 
 ////////////////////////////////
-//~ rjf: @os_hooks Native Messages & Panics (Implemented Per-OS)
+//~ rjf: @os_hooks Native User-Facing Graphical Messages (Implemented Per-OS)
 
 internal void           os_graphical_message(B32 error, String8 title, String8 message);
+
+////////////////////////////////
+//~ rjf: @os_hooks Shell Operations
+
+internal void           os_show_in_filesystem_ui(String8 path);
 
 #endif // OS_GRAPHICAL_H

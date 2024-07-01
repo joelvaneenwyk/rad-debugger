@@ -7,22 +7,12 @@
 ////////////////////////////////
 //~ NOTE(allen): Negotiate the windows header include order
 
-#if OS_FEATURE_SOCKET
-#include <WinSock2.h>
-#endif
-
-#include <Windows.h>
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
+#include <windowsx.h>
+#include <timeapi.h>
+#include <tlhelp32.h>
 #include <Shlobj.h>
-
-#if OS_FEATURE_GRAPHICAL
-#include <shellscalingapi.h>
-#endif
-
-#if OS_FEATURE_SOCKET
-#include <WS2tcpip.h>
-#include <Mswsock.h>
-#endif
-
 #include <processthreadsapi.h>
 
 ////////////////////////////////
@@ -33,6 +23,9 @@ struct W32_FileIter
 {
   HANDLE handle;
   WIN32_FIND_DATAW find_data;
+  B32 is_volume_iter;
+  String8Array drive_strings;
+  U64 drive_strings_iter_idx;
 };
 StaticAssert(sizeof(Member(OS_FileIter, memory)) >= sizeof(W32_FileIter), file_iter_memory_size);
 
