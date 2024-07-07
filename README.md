@@ -63,14 +63,14 @@ searching for `Native` from the Windows Start Menu search.
 You can ensure that the MSVC compiler is accessible from your command line by
 running:
 
-```
+```bash
 cl
 ```
 
 If everything is set up correctly, you should have output very similar to the
 following:
 
-```
+```log
 Microsoft (R) C/C++ Optimizing Compiler Version 19.29.30151 for x64
 Copyright (C) Microsoft Corporation.  All rights reserved.
 
@@ -82,13 +82,13 @@ usage: cl [ option... ] filename... [ /link linkoption... ]
 Within this terminal, `cd` to the root directory of the codebase, and just run
 the `build.bat` script:
 
-```
+```bash
 build
 ```
 
 You should see the following output:
 
-```
+```log
 [debug mode]
 [msvc compile]
 [default mode, assuming `raddbg` build]
