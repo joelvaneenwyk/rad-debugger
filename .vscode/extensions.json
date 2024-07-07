@@ -1,5 +1,11 @@
 {
     "recommendations": [
-        "franneck94.c-cpp-runner"
+        "franneck94.c-cpp-runner",
+        "ms-vscode.cpptools",
+        "jeff-hykin.better-cpp-syntax",
+        "danielpinto8zz6.c-cpp-compile-run",
+        "llvm-vs-code-extensions.vscode-clangd",
+        "nilssoderman.batch-runner",
+        "rechinformatica.rech-editor-batch"
     ]
 }
