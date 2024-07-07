@@ -1,0 +1,11 @@
+version: "0.2"
+ignorePaths: []
+dictionaryDefinitions:
+  - name: rad-debugger
+    path: ./.github/config/cspell-rad-debugger.dict
+    addWords: true
+dictionaries:
+  - rad-debugger
+words: []
+ignoreWords: []
+import: []
