@@ -1,17 +1,18 @@
-# The RAD Debugger Project
+# RAD Debugger
 
-_**Note:** This README does not document usage instructions and tips for the
+> [!IMPORTANT]
+> This README does **not** document usage instructions and tips for the
 debugger itself, and is intended as a technical overview of the project. The
 debugger's README, which includes usage instructions and tips, can be found
 packaged along with debugger releases, or within the `build` folder after a
-local copy has been built._
+local copy has been built.
 
-The RAD Debugger is a native, user-mode, multi-process, graphical debugger. It
+The `RAD Debugger` is a native, user-mode, multi-process, graphical debugger. It
 currently only supports local-machine Windows x64 debugging with PDBs, with
 plans to expand and port in the future. In the future we'll expand to also
 support native Linux debugging and DWARF debug info.
 
-The RAD Debugger is currently in *ALPHA*. In order to get the debugger bullet-
+The `RAD Debugger` is currently in _ALPHA_. In order to get the debugger bullet-
 proof, it'd greatly help out if you submitted the issues you find here, along
 with any information you can gather, like dump files (along with the build you
 used), instructions to reproduce, test executables, and so on.
@@ -19,7 +20,7 @@ used), instructions to reproduce, test executables, and so on.
 You can download pre-built binaries for the debugger
 [here](https://github.com/EpicGames/raddebugger/releases).
 
-The RAD Debugger project aims to simplify the debugger by simplifying and
+The `RAD Debugger` project aims to simplify the debugger by simplifying and
 unifying the underlying debug info format. In that pursuit we've built the RAD
 Debug Info (RDI) format, which is what the debugger parses and uses. To work
 with existing toolchains, we convert PDB (and eventually PE/ELF files with
@@ -152,7 +153,7 @@ Once the above list is complete, and once every part is rock solid, the Windows
 debugging experience we'll have worked diligently to create will also be
 available natively on Linux machines.
 
-### And Beyond!
+### And Beyond
 
 There are several directions we might take after these two major phases,
 like remote debugging, porting to different architectures, further improving
@@ -173,14 +174,14 @@ also exist:
 
 ## Codebase Introduction
 
-The codebase is organized into *layers*. Layers are separated either to isolate
+The codebase is organized into _layers_. Layers are separated either to isolate
 certain problems, and to allow inclusion into various builds without needing to
 pull everything in the codebase into a build. Layers correspond with folders
 inside of the `src` directory. Sometimes, one folder inside of the `src`
 directory will include multiple sub-layers, but the structure is intended to be
 fairly flat.
 
-Layers correspond roughly 1-to-1 with *namespaces*. The term "namespaces" in
+Layers correspond roughly 1-to-1 with _namespaces_. The term "namespaces" in
 this context does not refer to specific namespace language features, but rather
 a naming convention for C-style namespaces, which are written in the codebase as
 a short prefix, usually 1-3 characters, followed by an underscore. These
@@ -202,6 +203,7 @@ not depend on any other layers in the codebase. The folders which contain these
 layers are prefixed with `lib_`, like `lib_rdi_format`.
 
 A list of the layers in the codebase and their associated namespaces is below:
+
 - `base` (no namespace): Universal, codebase-wide constructs. Strings, math,
   memory allocators, helper macros, command-line parsing, and so on. Depends
   on no other codebase layers.
@@ -320,7 +322,7 @@ A list of the layers in the codebase and their associated namespaces is below:
   tokens, and metadata, and it is prepared on background threads.
 - `type_graph` (`TG_`): Code for analyzing and navigating type structures from
   RDI debug info files, with the additional capability of constructing
-  synthetic types *not* found in debug info. Used in `eval` and for various
+  synthetic types _not_ found in debug info. Used in `eval` and for various
   visualization features.
 - `ui` (`UI_`): Machinery for building graphical user interfaces. Provides a
   core immediate mode hierarchical user interface data structure building
