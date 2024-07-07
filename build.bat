@@ -145,8 +145,8 @@ setlocal EnableDelayedExpansion
 endlocal & (
     set "%_var%=%_out_var%"
     set "%_var%_dir=%_out_var_dir%"
-    exit /b 0
 )
+exit /b %errorlevel%
 
 :: -----------------------------------------------------------------------------
 :: Build the project with the given arguments.
