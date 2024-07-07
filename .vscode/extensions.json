@@ -6,6 +6,8 @@
         "danielpinto8zz6.c-cpp-compile-run",
         "llvm-vs-code-extensions.vscode-clangd",
         "nilssoderman.batch-runner",
-        "rechinformatica.rech-editor-batch"
+        "rechinformatica.rech-editor-batch",
+        "willasm.rc-script",
+        "xadillax.viml"
     ]
 }
