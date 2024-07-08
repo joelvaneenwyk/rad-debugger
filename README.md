@@ -1,21 +1,29 @@
 # RAD Debugger
 
-> [!IMPORTANT]
-> This README does **not** document usage instructions and tips for the
-debugger itself, and is intended as a technical overview of the project. The
-debugger's README, which includes usage instructions and tips, can be found
-packaged along with debugger releases, or within the `build` folder after a
-local copy has been built.
+> [!WARNING]
+> This is a **fork** of RAD Debugger with opinionated and highly experimental
+> changes to the original project. Use this fork **entirely** at your own risk.
+
+---
 
 The `RAD Debugger` is a native, user-mode, multi-process, graphical debugger. It
 currently only supports local-machine Windows x64 debugging with PDBs, with
 plans to expand and port in the future. In the future we'll expand to also
 support native Linux debugging and DWARF debug info.
 
+> [!IMPORTANT]
+> This `README` does **not** document usage instructions and tips for the
+debugger itself, and is intended as a technical overview of the project. The
+debugger's `README`, which includes usage instructions and tips, can be found
+packaged along with debugger releases, or within the `build` folder after a
+local copy has been built.
+
 The `RAD Debugger` is currently in _ALPHA_. In order to get the debugger bullet-
 proof, it'd greatly help out if you submitted the issues you find here, along
 with any information you can gather, like dump files (along with the build you
 used), instructions to reproduce, test executables, and so on.
+
+## Install Instructions
 
 You can download pre-built binaries for the debugger
 [here](https://github.com/EpicGames/raddebugger/releases).
@@ -26,7 +34,9 @@ Debug Info (RDI) format, which is what the debugger parses and uses. To work
 with existing toolchains, we convert PDB (and eventually PE/ELF files with
 embedded DWARF) into the RDI format on-demand.
 
-The RDI format is currently specified in code, in the files within the
+## `RDI` Format
+
+The `RDI` format is currently specified in code, in the files within the
 `src/lib_rdi_format` folder. The other relevant folders for working with the
 format are:
 

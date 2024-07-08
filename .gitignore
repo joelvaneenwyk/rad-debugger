@@ -1,5 +1,14 @@
+#
+# RAD Debugger
+#
+
 /build/
 /local/
+
 *~
+
 /*.res
 /*.obj
+
+.git/
+.cspell/
